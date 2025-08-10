@@ -38,6 +38,16 @@ cp .env.template .env
 # Edit .env with your API keys and credentials
 ```
 
+### Email Recipients
+The system supports sending reports to multiple email addresses:
+```bash
+# Single recipient
+EMAIL_TO=user@example.com
+
+# Multiple recipients (comma-separated)
+EMAIL_TO=user1@example.com,user2@example.com,admin@company.com
+```
+
 ## Architecture
 
 ### Core Components

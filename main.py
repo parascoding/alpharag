@@ -230,7 +230,12 @@ class AlphaRAGOrchestrator:
             confidence_stars = '⭐' * min(rec.get('confidence', 5), 5)
             print(f"   {rec_emoji} {symbol}: {rec['recommendation']} {confidence_stars}")
         
-        print(f"\n📧 Detailed report sent to: {settings.EMAIL_TO}")
+        # Display email recipients
+        if isinstance(settings.EMAIL_TO, list):
+            recipients = ', '.join(settings.EMAIL_TO)
+        else:
+            recipients = str(settings.EMAIL_TO)
+        print(f"\n📧 Detailed report sent to: {recipients}")
         print("="*60)
     
     def test_email(self) -> bool:
@@ -265,10 +270,14 @@ class AlphaRAGOrchestrator:
                 issues.append(f"Portfolio file not found: {settings.PORTFOLIO_FILE}")
             
             # Check required environment variables
-            required_vars = ['ANTHROPIC_API_KEY', 'EMAIL_USER', 'EMAIL_PASS', 'EMAIL_TO']
+            required_vars = ['ANTHROPIC_API_KEY', 'EMAIL_USER', 'EMAIL_PASS']
             for var in required_vars:
                 if not getattr(settings, var):
                     issues.append(f"Missing environment variable: {var}")
+            
+            # Check EMAIL_TO specifically (it's a list)
+            if not settings.EMAIL_TO:
+                issues.append("Missing environment variable: EMAIL_TO (or invalid format)")
             
             if issues:
                 logger.error("❌ Setup validation failed:")

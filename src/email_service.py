@@ -2,7 +2,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,23 +14,34 @@ class EmailService:
         self.username = username
         self.password = password
     
-    def send_portfolio_analysis(self, to_email: str, portfolio_data: Dict, 
+    def send_portfolio_analysis(self, to_emails: Union[str, List[str]], portfolio_data: Dict, 
                                market_data: Dict, sentiment_data: Dict, 
                                predictions: Dict, financial_data: Optional[Dict] = None) -> bool:
         try:
+            # Convert single email to list for consistency
+            if isinstance(to_emails, str):
+                to_emails = [to_emails]
+            
             subject = f"AlphaRAG Portfolio Analysis - {datetime.now().strftime('%Y-%m-%d')}"
             
             # Create email content
             email_body = self._create_analysis_email(portfolio_data, market_data, 
                                                    sentiment_data, predictions, financial_data)
             
-            # Send email
-            success = self._send_email(to_email, subject, email_body)
+            # Send email to all recipients
+            success_count = 0
+            for email in to_emails:
+                if self._send_email(email.strip(), subject, email_body):
+                    success_count += 1
+                    logger.info(f"Portfolio analysis email sent successfully to {email}")
+                else:
+                    logger.error(f"Failed to send email to {email}")
+            
+            # Consider successful if sent to at least one recipient
+            success = success_count > 0
             
             if success:
-                logger.info(f"Portfolio analysis email sent successfully to {to_email}")
-            else:
-                logger.error(f"Failed to send email to {to_email}")
+                logger.info(f"Portfolio analysis sent to {success_count}/{len(to_emails)} recipients")
             
             return success
             
@@ -327,9 +338,13 @@ class EmailService:
             logger.error(f"SMTP error: {e}")
             return False
     
-    def send_test_email(self, to_email: str) -> bool:
+    def send_test_email(self, to_emails: Union[str, List[str]]) -> bool:
         """Send a test email to verify configuration"""
         try:
+            # Convert single email to list for consistency
+            if isinstance(to_emails, str):
+                to_emails = [to_emails]
+            
             subject = "AlphaRAG Test Email"
             body = f"""
 Hello!
@@ -340,16 +355,26 @@ If you received this email, your SMTP settings are working correctly.
 
 Timestamp: {datetime.now().isoformat()}
 
+Recipient list: {', '.join(to_emails)}
+
 Best regards,
 AlphaRAG System
             """.strip()
             
-            success = self._send_email(to_email, subject, body)
+            # Send test email to all recipients
+            success_count = 0
+            for email in to_emails:
+                if self._send_email(email.strip(), subject, body):
+                    success_count += 1
+                    logger.info(f"Test email sent successfully to {email}")
+                else:
+                    logger.error(f"Failed to send test email to {email}")
+            
+            # Consider successful if sent to at least one recipient
+            success = success_count > 0
             
             if success:
-                logger.info(f"Test email sent successfully to {to_email}")
-            else:
-                logger.error(f"Failed to send test email to {to_email}")
+                logger.info(f"Test email sent to {success_count}/{len(to_emails)} recipients")
             
             return success
             
