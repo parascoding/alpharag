@@ -16,6 +16,9 @@ class Settings:
     
     ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
     
+    # Financial Indicators Configuration
+    USE_REAL_FINANCIAL_APIS = os.getenv('USE_REAL_FINANCIAL_APIS', 'false').lower() == 'true'
+    
     RSS_FEEDS = [
         'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
         'https://www.moneycontrol.com/rss/business.xml'

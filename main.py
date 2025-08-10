@@ -20,6 +20,7 @@ from src.news_sentiment import NewsSentimentAnalyzer
 from src.rag_engine import SimpleRAGEngine
 from src.prediction import ClaudePredictionEngine
 from src.email_service import EmailService
+from src.financial_indicators import FinancialIndicatorsFetcher
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +42,7 @@ class AlphaRAGOrchestrator:
         self.rag_engine = None
         self.prediction_engine = None
         self.email_service = None
+        self.financial_indicators = None
         
         self._initialize_components()
     
@@ -81,6 +83,14 @@ class AlphaRAGOrchestrator:
             )
             logger.info("✅ Email service initialized")
             
+            # Initialize financial indicators
+            self.financial_indicators = FinancialIndicatorsFetcher(
+                settings.ALPHA_VANTAGE_API_KEY,
+                settings.USE_REAL_FINANCIAL_APIS
+            )
+            mode = "real APIs" if settings.USE_REAL_FINANCIAL_APIS else "mock data"
+            logger.info(f"✅ Financial indicators initialized ({mode})")
+            
             logger.info("🚀 All components initialized successfully!")
             
         except Exception as e:
@@ -105,12 +115,25 @@ class AlphaRAGOrchestrator:
             portfolio_value = self.portfolio_manager.calculate_portfolio_value(current_prices)
             logger.info(f"Market data fetched for {len(current_prices)} symbols")
             
-            # Step 3: Analyze news sentiment
+            # Step 3: Fetch financial indicators
+            logger.info("💰 Fetching financial indicators...")
+            financial_indicators = self.financial_indicators.get_financial_indicators(symbols)
+            
+            # Calculate financial health scores
+            financial_data = {}
+            for symbol, data in financial_indicators.items():
+                health_score = self.financial_indicators.calculate_financial_health_score(data)
+                data['health_score'] = health_score
+                financial_data[symbol] = data
+            
+            logger.info(f"Financial indicators fetched for {len(financial_data)} symbols")
+            
+            # Step 4: Analyze news sentiment  
             logger.info("📰 Analyzing news sentiment...")
             sentiment_data = self.news_analyzer.get_news_summary(symbols, hours_back=24)
             logger.info(f"Sentiment analyzed from {sentiment_data['total_articles']} articles")
             
-            # Step 4: Build RAG context
+            # Step 5: Build RAG context
             logger.info("🧠 Building RAG context...")
             self.rag_engine.clear_documents()
             
@@ -120,6 +143,15 @@ class AlphaRAGOrchestrator:
             # Add market data to RAG
             for symbol in symbols:
                 self.rag_engine.add_market_data(symbol, market_summary)
+            
+            # Add financial indicators to RAG
+            for symbol in symbols:
+                if symbol in financial_data:
+                    self.rag_engine.add_financial_indicators(
+                        symbol, 
+                        financial_data[symbol], 
+                        financial_data[symbol].get('health_score', {})
+                    )
             
             # Add sentiment data to RAG
             for symbol in symbols:
@@ -133,17 +165,17 @@ class AlphaRAGOrchestrator:
             rag_context = self.rag_engine.get_all_context()
             logger.info("RAG context built successfully")
             
-            # Step 5: Generate predictions using Claude
+            # Step 6: Generate predictions using Claude
             logger.info("🤖 Generating AI predictions...")
             predictions = self.prediction_engine.generate_predictions(
-                rag_context, portfolio_value, market_summary, sentiment_data
+                rag_context, portfolio_value, market_summary, sentiment_data, financial_data
             )
             logger.info("Predictions generated successfully")
             
-            # Step 6: Send email report
+            # Step 7: Send email report
             logger.info("📧 Sending email report...")
             email_success = self.email_service.send_portfolio_analysis(
-                settings.EMAIL_TO, portfolio_value, market_summary, sentiment_data, predictions
+                settings.EMAIL_TO, portfolio_value, market_summary, sentiment_data, predictions, financial_data
             )
             
             if email_success:
@@ -151,8 +183,8 @@ class AlphaRAGOrchestrator:
             else:
                 logger.warning("⚠️  Email sending failed, but analysis completed")
             
-            # Step 7: Display summary
-            self._display_summary(portfolio_value, sentiment_data, predictions)
+            # Step 8: Display summary
+            self._display_summary(portfolio_value, sentiment_data, predictions, financial_data)
             
             logger.info("🎉 Full analysis completed successfully!")
             return True
@@ -161,7 +193,7 @@ class AlphaRAGOrchestrator:
             logger.error(f"❌ Error during analysis: {e}")
             return False
     
-    def _display_summary(self, portfolio_value: dict, sentiment_data: dict, predictions: dict):
+    def _display_summary(self, portfolio_value: dict, sentiment_data: dict, predictions: dict, financial_data: dict = None):
         """Display a summary of the analysis results"""
         print("\n" + "="*60)
         print("🎯 ALPHARAG ANALYSIS SUMMARY")
@@ -179,6 +211,16 @@ class AlphaRAGOrchestrator:
         sentiment_emoji = {'positive': '😊', 'negative': '😟', 'neutral': '😐'}.get(overall_sentiment['label'], '❓')
         print(f"\n📰 Market Sentiment: {sentiment_emoji} {overall_sentiment['label'].title()}")
         print(f"   Articles Analyzed: {sentiment_data['total_articles']}")
+        
+        # Financial health summary
+        if financial_data:
+            print(f"\n💰 Financial Health Scores:")
+            for symbol, data in financial_data.items():
+                health_score = data.get('health_score', {})
+                score = health_score.get('overall_score', 0)
+                rating = health_score.get('rating', 'Unknown')
+                rating_emoji = health_score.get('rating_emoji', '❓')
+                print(f"   {rating_emoji} {symbol}: {score:.1f}/10 ({rating})")
         
         # Recommendations
         print(f"\n🎯 AI Recommendations:")
