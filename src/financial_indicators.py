@@ -6,6 +6,8 @@ Provides comprehensive fundamental analysis with mock-first approach and real AP
 
 import requests
 import random
+import json
+from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import logging
@@ -49,281 +51,188 @@ class FinancialIndicatorsFetcher:
                     # Try real API first, fallback to mock if fails
                     indicators = self._get_real_financial_data(symbol)
                     if not indicators:
-                        logger.warning(f"Real API failed for {symbol}, using mock data")
-                        indicators = self._get_mock_financial_data(symbol)
+                        logger.warning(f"Real API failed for {symbol}, falling back to mock data")
+                        indicators = self._generate_mock_financial_data(symbol)
                 else:
                     # Use mock data
-                    indicators = self._get_mock_financial_data(symbol)
+                    indicators = self._generate_mock_financial_data(symbol)
                 
-                financial_data[symbol] = indicators
-                time.sleep(0.1)  # Rate limiting
-                
+                if indicators:
+                    indicators['symbol'] = symbol
+                    indicators['last_updated'] = datetime.now().isoformat()
+                    financial_data[symbol] = indicators
+                    logger.info(f"Retrieved financial data for {symbol}")
+                else:
+                    logger.warning(f"No financial data available for {symbol}")
+                    
             except Exception as e:
-                logger.error(f"Error fetching financial data for {symbol}: {e}")
-                # Always fallback to mock data on error
-                financial_data[symbol] = self._get_mock_financial_data(symbol)
+                logger.error(f"Error getting financial indicators for {symbol}: {e}")
+                continue
         
         return financial_data
     
-    def _get_mock_financial_data(self, symbol: str) -> Dict[str, Any]:
+    def _load_mock_data_from_json(self) -> Dict[str, Any]:
         """
-        Generate realistic mock financial data based on Indian market characteristics
+        Load mock financial data from JSON file
         """
-        # Base financial data by sector
-        base_data = {
+        try:
+            mock_data_path = Path(__file__).parent.parent / 'mock_data' / 'financial_indicators.json'
+            
+            if not mock_data_path.exists():
+                logger.warning(f"Mock data file not found: {mock_data_path}. Using fallback data.")
+                return self._generate_fallback_mock_data()
+            
+            with open(mock_data_path, 'r') as f:
+                data = json.load(f)
+            
+            logger.info(f"Loaded mock financial data from {mock_data_path}")
+            return data['financial_indicators']
+            
+        except Exception as e:
+            logger.error(f"Error loading mock data from JSON: {e}")
+            return self._generate_fallback_mock_data()
+    
+    def _generate_fallback_mock_data(self) -> Dict[str, Any]:
+        """
+        Generate basic mock financial data as fallback
+        """
+        return {
             'RELIANCE.NS': {
-                # Oil & Gas sector characteristics
                 'sector': 'Oil & Gas',
-                'market_cap_cr': 1850000 + random.uniform(-50000, 100000),  # ~18.5 lakh crore
-                'pe_ratio': 15.2 + random.uniform(-2, 2),
-                'pb_ratio': 1.8 + random.uniform(-0.3, 0.3),
-                'ps_ratio': 1.2 + random.uniform(-0.2, 0.3),
-                'ev_ebitda': 8.5 + random.uniform(-1, 1.5),
-                'peg_ratio': 1.1 + random.uniform(-0.2, 0.3),
-                
-                # Profitability ratios
-                'roe': 12.5 + random.uniform(-2, 3),  # Return on Equity
-                'roa': 6.8 + random.uniform(-1, 1.5),  # Return on Assets
-                'roic': 9.2 + random.uniform(-1.5, 2),  # Return on Invested Capital
-                'gross_margin': 45.2 + random.uniform(-3, 5),
-                'operating_margin': 12.8 + random.uniform(-2, 3),
-                'net_profit_margin': 8.2 + random.uniform(-1, 2),
-                
-                # Financial health
-                'debt_to_equity': 0.45 + random.uniform(-0.05, 0.10),
-                'current_ratio': 1.2 + random.uniform(-0.1, 0.2),
-                'quick_ratio': 0.95 + random.uniform(-0.1, 0.15),
-                'interest_coverage': 4.2 + random.uniform(-0.5, 1),
-                'asset_turnover': 0.85 + random.uniform(-0.1, 0.2),
-                
-                # Growth indicators
-                'revenue_growth_yoy': 8.5 + random.uniform(-3, 5),
-                'earnings_growth_yoy': 12.1 + random.uniform(-4, 8),
-                'book_value_growth_yoy': 6.8 + random.uniform(-2, 4),
-                
-                # Dividend metrics
-                'dividend_yield': 0.5 + random.uniform(-0.1, 0.2),
-                'dividend_payout_ratio': 6.5 + random.uniform(-1, 2),
-                'dividend_coverage_ratio': 15.4 + random.uniform(-2, 4)
+                'market_cap_cr': 1950000,
+                'pe_ratio': 22.4, 'pb_ratio': 1.8, 'roe': 12.8,
+                'debt_to_equity': 0.65, 'current_ratio': 1.45,
+                'revenue_growth_yoy': 8.4, 'dividend_yield': 0.8
             },
-            
             'TCS.NS': {
-                # IT Services sector characteristics
-                'sector': 'IT Services',
-                'market_cap_cr': 1250000 + random.uniform(-30000, 80000),  # ~12.5 lakh crore
-                'pe_ratio': 28.5 + random.uniform(-3, 4),
-                'pb_ratio': 12.4 + random.uniform(-1.5, 2),
-                'ps_ratio': 6.8 + random.uniform(-0.8, 1.2),
-                'ev_ebitda': 18.2 + random.uniform(-2, 3),
-                'peg_ratio': 1.8 + random.uniform(-0.3, 0.5),
-                
-                # Profitability ratios (IT services typically higher)
-                'roe': 35.2 + random.uniform(-3, 5),
-                'roa': 28.5 + random.uniform(-2, 4),
-                'roic': 42.1 + random.uniform(-4, 6),
-                'gross_margin': 68.5 + random.uniform(-2, 4),
-                'operating_margin': 25.8 + random.uniform(-2, 3),
-                'net_profit_margin': 21.8 + random.uniform(-2, 3),
-                
-                # Financial health (IT services typically very healthy)
-                'debt_to_equity': 0.05 + random.uniform(0, 0.05),  # Very low debt
-                'current_ratio': 2.1 + random.uniform(-0.2, 0.4),
-                'quick_ratio': 1.95 + random.uniform(-0.2, 0.3),
-                'interest_coverage': 45.2 + random.uniform(-5, 10),  # Very high
-                'asset_turnover': 1.35 + random.uniform(-0.15, 0.25),
-                
-                # Growth indicators
-                'revenue_growth_yoy': 12.1 + random.uniform(-2, 6),
-                'earnings_growth_yoy': 15.8 + random.uniform(-3, 8),
-                'book_value_growth_yoy': 18.2 + random.uniform(-2, 6),
-                
-                # Dividend metrics
-                'dividend_yield': 3.2 + random.uniform(-0.3, 0.5),
-                'dividend_payout_ratio': 35.8 + random.uniform(-3, 5),
-                'dividend_coverage_ratio': 2.8 + random.uniform(-0.3, 0.5)
+                'sector': 'IT Services', 
+                'market_cap_cr': 1350000,
+                'pe_ratio': 28.5, 'pb_ratio': 12.4, 'roe': 42.8,
+                'debt_to_equity': 0.01, 'current_ratio': 3.2,
+                'revenue_growth_yoy': 16.8, 'dividend_yield': 2.1
             },
-            
             'INFY.NS': {
-                # IT Services sector (similar to TCS but with variations)
                 'sector': 'IT Services',
-                'market_cap_cr': 650000 + random.uniform(-20000, 50000),  # ~6.5 lakh crore
-                'pe_ratio': 24.8 + random.uniform(-2, 3),
-                'pb_ratio': 8.9 + random.uniform(-1, 1.5),
-                'ps_ratio': 5.2 + random.uniform(-0.5, 0.8),
-                'ev_ebitda': 16.8 + random.uniform(-1.5, 2.5),
-                'peg_ratio': 1.5 + random.uniform(-0.2, 0.4),
-                
-                # Profitability ratios
-                'roe': 28.9 + random.uniform(-2, 4),
-                'roa': 25.2 + random.uniform(-2, 3),
-                'roic': 38.5 + random.uniform(-3, 5),
-                'gross_margin': 65.8 + random.uniform(-2, 4),
-                'operating_margin': 22.5 + random.uniform(-1.5, 2.5),
-                'net_profit_margin': 19.5 + random.uniform(-1.5, 2.5),
-                
-                # Financial health
-                'debt_to_equity': 0.08 + random.uniform(0, 0.07),
-                'current_ratio': 3.2 + random.uniform(-0.3, 0.5),
-                'quick_ratio': 2.95 + random.uniform(-0.2, 0.4),
-                'interest_coverage': 52.1 + random.uniform(-5, 12),
-                'asset_turnover': 1.28 + random.uniform(-0.12, 0.20),
-                
-                # Growth indicators
-                'revenue_growth_yoy': 15.2 + random.uniform(-3, 7),
-                'earnings_growth_yoy': 18.5 + random.uniform(-4, 9),
-                'book_value_growth_yoy': 16.8 + random.uniform(-2, 5),
-                
-                # Dividend metrics
-                'dividend_yield': 2.8 + random.uniform(-0.2, 0.4),
-                'dividend_payout_ratio': 28.5 + random.uniform(-2, 4),
-                'dividend_coverage_ratio': 3.5 + random.uniform(-0.4, 0.6)
+                'market_cap_cr': 750000, 
+                'pe_ratio': 26.1, 'pb_ratio': 8.9, 'roe': 31.4,
+                'debt_to_equity': 0.02, 'current_ratio': 2.8,
+                'revenue_growth_yoy': 19.7, 'dividend_yield': 2.8
             }
         }
+    
+    def _generate_mock_financial_data(self, symbol: str) -> Dict[str, Any]:
+        """
+        Generate mock financial data - now loads from JSON file
+        """
+        mock_data = self._load_mock_data_from_json()
         
-        # Get base data for symbol, or create generic data if not found
-        if symbol in base_data:
-            data = base_data[symbol].copy()
-        else:
-            # Generic company data for unknown symbols
-            data = {
-                'sector': 'Unknown',
-                'market_cap_cr': 50000 + random.uniform(-10000, 20000),
-                'pe_ratio': 20.0 + random.uniform(-5, 8),
-                'pb_ratio': 3.5 + random.uniform(-1, 2),
-                'ps_ratio': 2.8 + random.uniform(-0.5, 1),
-                'ev_ebitda': 12.0 + random.uniform(-2, 4),
-                'peg_ratio': 1.5 + random.uniform(-0.5, 0.8),
-                'roe': 18.0 + random.uniform(-5, 8),
-                'roa': 12.0 + random.uniform(-3, 5),
-                'roic': 15.0 + random.uniform(-4, 6),
-                'gross_margin': 40.0 + random.uniform(-5, 10),
-                'operating_margin': 15.0 + random.uniform(-3, 5),
-                'net_profit_margin': 12.0 + random.uniform(-2, 4),
-                'debt_to_equity': 0.6 + random.uniform(-0.2, 0.4),
-                'current_ratio': 1.5 + random.uniform(-0.3, 0.5),
-                'quick_ratio': 1.2 + random.uniform(-0.2, 0.3),
-                'interest_coverage': 8.0 + random.uniform(-2, 4),
-                'asset_turnover': 1.0 + random.uniform(-0.2, 0.3),
-                'revenue_growth_yoy': 10.0 + random.uniform(-5, 10),
-                'earnings_growth_yoy': 12.0 + random.uniform(-6, 12),
-                'book_value_growth_yoy': 8.0 + random.uniform(-3, 6),
-                'dividend_yield': 2.0 + random.uniform(-0.5, 1),
-                'dividend_payout_ratio': 25.0 + random.uniform(-5, 10),
-                'dividend_coverage_ratio': 4.0 + random.uniform(-1, 2)
-            }
+        if symbol not in mock_data:
+            logger.warning(f"No mock data found for {symbol}")
+            return {}
         
-        # Add metadata
-        data.update({
+        # Get base data from JSON
+        base_data = mock_data[symbol].copy()
+        
+        # Flatten the nested structure from JSON
+        financial_data = {
             'symbol': symbol,
-            'data_source': 'mock',
-            'last_updated': datetime.now().isoformat(),
-            'currency': 'INR'
-        })
+            'sector': base_data.get('sector', 'Unknown'),
+            'market_cap_cr': base_data.get('market_cap_cr', 0),
+            'data_source': 'mock'
+        }
         
-        logger.info(f"Generated mock financial data for {symbol} ({data.get('sector', 'Unknown')} sector)")
-        return data
+        # Add all metrics from nested categories
+        for category in ['valuation_metrics', 'profitability_metrics', 
+                        'financial_health', 'growth_metrics', 
+                        'dividend_metrics', 'efficiency_metrics']:
+            if category in base_data:
+                financial_data.update(base_data[category])
+        
+        # Add slight randomization to make data more realistic
+        for key, value in financial_data.items():
+            if isinstance(value, (int, float)) and key not in ['market_cap_cr', 'symbol']:
+                # Add ±5% random variation
+                variation = value * random.uniform(-0.05, 0.05)
+                financial_data[key] = round(value + variation, 2)
+        
+        logger.info(f"Generated mock financial data for {symbol} from JSON")
+        return financial_data
     
     def _get_real_financial_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
         Fetch real financial data from Alpha Vantage API
-        This method is prepared for future implementation
+        
+        Args:
+            symbol: Stock symbol (e.g., 'RELIANCE.NS')
+            
+        Returns:
+            Dictionary of financial indicators or None if failed
         """
         try:
-            # Check cache first
-            cache_key = f"financial_{symbol}"
-            if self._is_cached(cache_key):
-                return self.cache[cache_key]['data']
+            # Remove .NS suffix for Alpha Vantage API (they use different format)
+            api_symbol = symbol.replace('.NS', '.BSE') if '.NS' in symbol else symbol
             
-            # Remove .NS suffix for Alpha Vantage
-            av_symbol = symbol.replace('.NS', '')
-            
-            # Alpha Vantage Overview endpoint
-            url = "https://www.alphavantage.co/query"
-            params = {
+            # Try company overview first
+            overview_url = f"https://www.alphavantage.co/query"
+            overview_params = {
                 'function': 'OVERVIEW',
-                'symbol': av_symbol,
+                'symbol': api_symbol,
                 'apikey': self.alpha_vantage_api_key
             }
             
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(overview_url, params=overview_params, timeout=10)
+            response.raise_for_status()
+            
             data = response.json()
             
-            if 'Symbol' in data and data['Symbol']:
-                # Parse Alpha Vantage data into our format
-                financial_data = self._parse_alpha_vantage_data(data, symbol)
-                
-                # Cache the result
-                self.cache[cache_key] = {
-                    'data': financial_data,
-                    'timestamp': datetime.now()
-                }
-                
-                logger.info(f"Fetched real financial data for {symbol} from Alpha Vantage")
-                return financial_data
-            else:
-                logger.warning(f"No data returned from Alpha Vantage for {symbol}")
+            if 'Symbol' not in data or not data.get('Symbol'):
+                logger.error(f"No data returned from Alpha Vantage for {symbol}")
                 return None
-                
+            
+            # Parse the financial data
+            financial_data = {
+                'symbol': symbol,
+                'sector': data.get('Sector', 'Unknown'),
+                'market_cap_cr': self._safe_float(data.get('MarketCapitalization', 0)) / 10000000,  # Convert to crores
+                'pe_ratio': self._safe_float(data.get('PERatio')),
+                'pb_ratio': self._safe_float(data.get('PriceToBookRatio')),
+                'ps_ratio': self._safe_float(data.get('PriceToSalesRatioTTM')),
+                'ev_ebitda': self._safe_float(data.get('EVToEBITDA')),
+                'roe': self._safe_float(data.get('ReturnOnEquityTTM')) * 100,  # Convert to percentage
+                'roa': self._safe_float(data.get('ReturnOnAssetsTTM')) * 100,
+                'gross_margin': self._safe_float(data.get('GrossProfitTTM')),
+                'operating_margin': self._safe_float(data.get('OperatingMarginTTM')) * 100,
+                'net_profit_margin': self._safe_float(data.get('ProfitMargin')) * 100,
+                'debt_to_equity': self._safe_float(data.get('DebtToEquity')),
+                'current_ratio': self._safe_float(data.get('CurrentRatio')),
+                'quick_ratio': self._safe_float(data.get('QuickRatio')),
+                'revenue_growth_yoy': self._safe_float(data.get('QuarterlyRevenueGrowthYOY')) * 100,
+                'earnings_growth_yoy': self._safe_float(data.get('QuarterlyEarningsGrowthYOY')) * 100,
+                'dividend_yield': self._safe_float(data.get('DividendYield')) * 100,
+                'dividend_payout_ratio': self._safe_float(data.get('PayoutRatio')) * 100,
+                'data_source': 'alpha_vantage'
+            }
+            
+            logger.info(f"Successfully fetched real financial data for {symbol}")
+            return financial_data
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error fetching financial data for {symbol}: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Error fetching real financial data for {symbol}: {e}")
+            logger.error(f"Error parsing financial data for {symbol}: {e}")
             return None
     
-    def _parse_alpha_vantage_data(self, av_data: Dict, symbol: str) -> Dict[str, Any]:
+    def _safe_float(self, value: Any) -> float:
         """
-        Parse Alpha Vantage API response into our standardized format
+        Safely convert value to float, return 0 if conversion fails
         """
-        def safe_float(value, default=0.0):
-            try:
-                return float(value) if value and value != 'None' and value != '-' else default
-            except (ValueError, TypeError):
-                return default
-        
-        def safe_percentage(value, default=0.0):
-            try:
-                if value and value != 'None' and value != '-':
-                    # Remove % sign if present and convert
-                    clean_value = str(value).replace('%', '')
-                    return float(clean_value)
-                return default
-            except (ValueError, TypeError):
-                return default
-        
-        return {
-            'symbol': symbol,
-            'sector': av_data.get('Sector', 'Unknown'),
-            'market_cap_cr': safe_float(av_data.get('MarketCapitalization', 0)) / 10000000,  # Convert to crores
-            
-            # Valuation ratios
-            'pe_ratio': safe_float(av_data.get('PERatio')),
-            'pb_ratio': safe_float(av_data.get('PriceToBookRatio')),
-            'ps_ratio': safe_float(av_data.get('PriceToSalesRatioTTM')),
-            'ev_ebitda': safe_float(av_data.get('EVToEBITDA')),
-            'peg_ratio': safe_float(av_data.get('PEGRatio')),
-            
-            # Profitability ratios
-            'roe': safe_percentage(av_data.get('ReturnOnEquityTTM')),
-            'roa': safe_percentage(av_data.get('ReturnOnAssetsTTM')),
-            'gross_margin': safe_percentage(av_data.get('GrossProfitTTM')),
-            'operating_margin': safe_percentage(av_data.get('OperatingMarginTTM')),
-            'net_profit_margin': safe_percentage(av_data.get('ProfitMargin')),
-            
-            # Financial health
-            'debt_to_equity': safe_float(av_data.get('DebtToEquity')),
-            'current_ratio': safe_float(av_data.get('CurrentRatio')),
-            'quick_ratio': safe_float(av_data.get('QuickRatio')),
-            
-            # Growth
-            'revenue_growth_yoy': safe_percentage(av_data.get('QuarterlyRevenueGrowthYOY')),
-            'earnings_growth_yoy': safe_percentage(av_data.get('QuarterlyEarningsGrowthYOY')),
-            
-            # Dividend
-            'dividend_yield': safe_percentage(av_data.get('DividendYield')),
-            
-            # Metadata
-            'data_source': 'alpha_vantage',
-            'last_updated': datetime.now().isoformat(),
-            'currency': 'INR'
-        }
+        try:
+            if value is None or value == 'None' or value == '':
+                return 0.0
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
     
     def calculate_financial_health_score(self, financial_data: Dict) -> Dict[str, Any]:
         """
@@ -346,44 +255,40 @@ class FinancialIndicatorsFetcher:
         liquidity_score = min(10, financial_data.get('current_ratio', 1) * 4)
         scores['financial_health_score'] = (debt_score + liquidity_score) / 2
         
-        # Growth Score (higher growth is better, but cap at reasonable levels)
-        revenue_growth_score = min(10, max(0, financial_data.get('revenue_growth_yoy', 0) * 0.5))
-        earnings_growth_score = min(10, max(0, financial_data.get('earnings_growth_yoy', 0) * 0.4))
+        # Growth Score (higher growth is better, but capped)
+        revenue_growth_score = max(0, min(10, financial_data.get('revenue_growth_yoy', 0) * 0.3))
+        earnings_growth_score = max(0, min(10, financial_data.get('earnings_growth_yoy', 0) * 0.25))
         scores['growth_score'] = (revenue_growth_score + earnings_growth_score) / 2
         
-        # Overall Score
+        # Overall Score (weighted average)
         overall_score = (
             scores['valuation_score'] * 0.25 +
-            scores['profitability_score'] * 0.3 +
+            scores['profitability_score'] * 0.35 +
             scores['financial_health_score'] * 0.25 +
-            scores['growth_score'] * 0.2
+            scores['growth_score'] * 0.15
         )
         
-        scores['overall_score'] = round(overall_score, 1)
-        
-        # Add interpretation
-        if overall_score >= 8.0:
-            scores['rating'] = 'EXCELLENT'
-            scores['rating_emoji'] = '🌟'
-        elif overall_score >= 6.5:
-            scores['rating'] = 'GOOD'
-            scores['rating_emoji'] = '👍'
-        elif overall_score >= 5.0:
-            scores['rating'] = 'FAIR'
-            scores['rating_emoji'] = '👌'
-        elif overall_score >= 3.0:
-            scores['rating'] = 'POOR'
-            scores['rating_emoji'] = '⚠️'
+        # Rating system
+        if overall_score >= 8:
+            rating = "EXCELLENT"
+            rating_emoji = "🟢"
+        elif overall_score >= 7:
+            rating = "GOOD" 
+            rating_emoji = "🟢"
+        elif overall_score >= 6:
+            rating = "FAIR"
+            rating_emoji = "🟡"
+        elif overall_score >= 4:
+            rating = "POOR"
+            rating_emoji = "🟠"
         else:
-            scores['rating'] = 'VERY POOR'
-            scores['rating_emoji'] = '🚨'
+            rating = "VERY POOR"
+            rating_emoji = "🔴"
+        
+        scores.update({
+            'overall_score': round(overall_score, 1),
+            'rating': rating,
+            'rating_emoji': rating_emoji
+        })
         
         return scores
-    
-    def _is_cached(self, key: str) -> bool:
-        """Check if data is cached and not expired"""
-        if key in self.cache:
-            cached_time = self.cache[key]['timestamp']
-            if (datetime.now() - cached_time).seconds < self.cache_timeout:
-                return True
-        return False

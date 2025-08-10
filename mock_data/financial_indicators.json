@@ -1,0 +1,204 @@
+{
+  "financial_indicators": {
+    "RELIANCE.NS": {
+      "symbol": "RELIANCE.NS",
+      "company_name": "Reliance Industries Limited",
+      "sector": "Oil & Gas",
+      "market_cap_cr": 1950000,
+      "data_source": "mock",
+      "last_updated": "2024-01-15",
+      
+      "valuation_metrics": {
+        "pe_ratio": 22.4,
+        "pb_ratio": 1.8,
+        "ps_ratio": 1.2,
+        "ev_ebitda": 8.7,
+        "price_to_cash_flow": 9.2
+      },
+      
+      "profitability_metrics": {
+        "roe": 12.8,
+        "roa": 6.4,
+        "roic": 9.1,
+        "gross_margin": 28.5,
+        "operating_margin": 18.7,
+        "net_profit_margin": 8.9,
+        "ebitda_margin": 22.3
+      },
+      
+      "financial_health": {
+        "debt_to_equity": 0.65,
+        "current_ratio": 1.45,
+        "quick_ratio": 0.87,
+        "interest_coverage": 4.8,
+        "debt_to_assets": 0.38,
+        "cash_ratio": 0.12
+      },
+      
+      "growth_metrics": {
+        "revenue_growth_yoy": 8.4,
+        "earnings_growth_yoy": -2.1,
+        "book_value_growth_yoy": 11.2,
+        "revenue_growth_3y": 12.7,
+        "earnings_growth_3y": 15.3
+      },
+      
+      "dividend_metrics": {
+        "dividend_yield": 0.8,
+        "dividend_payout_ratio": 18.2,
+        "dividend_coverage_ratio": 5.5,
+        "dividend_growth_rate": 15.0
+      },
+      
+      "efficiency_metrics": {
+        "asset_turnover": 0.72,
+        "inventory_turnover": 8.4,
+        "receivables_turnover": 15.2,
+        "working_capital_turnover": 4.1
+      }
+    },
+    
+    "TCS.NS": {
+      "symbol": "TCS.NS",
+      "company_name": "Tata Consultancy Services Limited",
+      "sector": "IT Services",
+      "market_cap_cr": 1350000,
+      "data_source": "mock",
+      "last_updated": "2024-01-15",
+      
+      "valuation_metrics": {
+        "pe_ratio": 28.5,
+        "pb_ratio": 12.4,
+        "ps_ratio": 6.8,
+        "ev_ebitda": 20.1,
+        "price_to_cash_flow": 18.7
+      },
+      
+      "profitability_metrics": {
+        "roe": 42.8,
+        "roa": 28.5,
+        "roic": 51.2,
+        "gross_margin": 78.4,
+        "operating_margin": 26.8,
+        "net_profit_margin": 19.7,
+        "ebitda_margin": 28.2
+      },
+      
+      "financial_health": {
+        "debt_to_equity": 0.01,
+        "current_ratio": 3.2,
+        "quick_ratio": 3.1,
+        "interest_coverage": 85.6,
+        "debt_to_assets": 0.01,
+        "cash_ratio": 0.45
+      },
+      
+      "growth_metrics": {
+        "revenue_growth_yoy": 16.8,
+        "earnings_growth_yoy": 14.2,
+        "book_value_growth_yoy": 15.7,
+        "revenue_growth_3y": 18.4,
+        "earnings_growth_3y": 17.9
+      },
+      
+      "dividend_metrics": {
+        "dividend_yield": 2.1,
+        "dividend_payout_ratio": 45.2,
+        "dividend_coverage_ratio": 2.2,
+        "dividend_growth_rate": 12.5
+      },
+      
+      "efficiency_metrics": {
+        "asset_turnover": 1.45,
+        "inventory_turnover": 0.0,
+        "receivables_turnover": 6.8,
+        "working_capital_turnover": 2.8
+      }
+    },
+    
+    "INFY.NS": {
+      "symbol": "INFY.NS",
+      "company_name": "Infosys Limited",
+      "sector": "IT Services", 
+      "market_cap_cr": 750000,
+      "data_source": "mock",
+      "last_updated": "2024-01-15",
+      
+      "valuation_metrics": {
+        "pe_ratio": 26.1,
+        "pb_ratio": 8.9,
+        "ps_ratio": 4.7,
+        "ev_ebitda": 17.8,
+        "price_to_cash_flow": 16.4
+      },
+      
+      "profitability_metrics": {
+        "roe": 31.4,
+        "roa": 24.7,
+        "roic": 35.8,
+        "gross_margin": 72.1,
+        "operating_margin": 23.5,
+        "net_profit_margin": 17.8,
+        "ebitda_margin": 25.9
+      },
+      
+      "financial_health": {
+        "debt_to_equity": 0.02,
+        "current_ratio": 2.8,
+        "quick_ratio": 2.7,
+        "interest_coverage": 42.1,
+        "debt_to_assets": 0.015,
+        "cash_ratio": 0.38
+      },
+      
+      "growth_metrics": {
+        "revenue_growth_yoy": 19.7,
+        "earnings_growth_yoy": 22.4,
+        "book_value_growth_yoy": 18.9,
+        "revenue_growth_3y": 21.2,
+        "earnings_growth_3y": 20.8
+      },
+      
+      "dividend_metrics": {
+        "dividend_yield": 2.8,
+        "dividend_payout_ratio": 70.5,
+        "dividend_coverage_ratio": 1.4,
+        "dividend_growth_rate": 18.7
+      },
+      
+      "efficiency_metrics": {
+        "asset_turnover": 1.38,
+        "inventory_turnover": 0.0,
+        "receivables_turnover": 5.9,
+        "working_capital_turnover": 3.2
+      }
+    }
+  },
+  
+  "sector_benchmarks": {
+    "IT Services": {
+      "avg_pe": 27.5,
+      "avg_pb": 10.2,
+      "avg_roe": 38.5,
+      "avg_debt_to_equity": 0.02,
+      "avg_current_ratio": 3.0,
+      "avg_net_margin": 18.5
+    },
+    
+    "Oil & Gas": {
+      "avg_pe": 18.2,
+      "avg_pb": 1.5,
+      "avg_roe": 14.2,
+      "avg_debt_to_equity": 0.58,
+      "avg_current_ratio": 1.3,
+      "avg_net_margin": 9.8
+    }
+  },
+  
+  "metadata": {
+    "last_updated": "2024-01-15T10:30:00Z",
+    "data_source": "mock",
+    "currency": "INR",
+    "description": "Mock financial indicators data for Indian equities - IT Services and Oil & Gas sectors"
+  }
+}

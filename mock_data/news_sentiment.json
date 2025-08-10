@@ -1,0 +1,188 @@
+{
+  "news_articles": {
+    "general_market": [
+      {
+        "id": "news_001",
+        "title": "Indian IT sector shows strong Q3 results amid global uncertainties",
+        "summary": "Major IT companies report robust earnings growth despite global economic headwinds. TCS and Infosys lead the sector with strong client acquisitions.",
+        "sentiment_score": 0.234,
+        "sentiment_label": "positive",
+        "source": "Economic Times",
+        "published_date": "2024-01-15T09:30:00Z",
+        "url": "https://example.com/news/001",
+        "relevance_score": 0.85,
+        "keywords": ["IT sector", "earnings", "growth", "TCS", "Infosys"]
+      },
+      
+      {
+        "id": "news_002", 
+        "title": "Oil prices stabilize as refining margins improve for Indian refiners",
+        "summary": "Reliance Industries and other refiners benefit from improved crack spreads. Energy sector outlook remains cautiously optimistic for 2024.",
+        "sentiment_score": 0.156,
+        "sentiment_label": "positive",
+        "source": "Business Standard",
+        "published_date": "2024-01-15T11:45:00Z",
+        "url": "https://example.com/news/002",
+        "relevance_score": 0.75,
+        "keywords": ["oil prices", "refiners", "Reliance", "energy sector"]
+      },
+      
+      {
+        "id": "news_003",
+        "title": "Market volatility expected amid global central bank policies",
+        "summary": "Analysts warn of increased market volatility as central banks navigate inflation concerns. Investors advised to focus on fundamentally strong companies.",
+        "sentiment_score": -0.089,
+        "sentiment_label": "neutral",
+        "source": "Mint",
+        "published_date": "2024-01-15T14:20:00Z",
+        "url": "https://example.com/news/003",
+        "relevance_score": 0.60,
+        "keywords": ["market volatility", "central banks", "inflation", "investors"]
+      }
+    ],
+    
+    "RELIANCE.NS": [
+      {
+        "id": "rel_001",
+        "title": "Reliance Industries expands renewable energy portfolio with new solar projects",
+        "summary": "RIL announces major investment in solar energy projects as part of its green energy transition strategy. Expected to boost long-term growth prospects.",
+        "sentiment_score": 0.312,
+        "sentiment_label": "positive",
+        "source": "Financial Express",
+        "published_date": "2024-01-15T08:15:00Z",
+        "url": "https://example.com/news/rel_001",
+        "relevance_score": 0.92,
+        "keywords": ["Reliance", "renewable energy", "solar projects", "green transition"]
+      },
+      
+      {
+        "id": "rel_002",
+        "title": "Reliance Retail's digital push shows promising early results",
+        "summary": "Strong growth in e-commerce and digital services segment. Retail arm continues to expand market share in India's growing consumer market.",
+        "sentiment_score": 0.189,
+        "sentiment_label": "positive", 
+        "source": "Hindu BusinessLine",
+        "published_date": "2024-01-14T16:30:00Z",
+        "url": "https://example.com/news/rel_002",
+        "relevance_score": 0.88,
+        "keywords": ["Reliance Retail", "digital", "e-commerce", "market share"]
+      }
+    ],
+    
+    "TCS.NS": [
+      {
+        "id": "tcs_001",
+        "title": "TCS wins multi-billion dollar digital transformation deal from European bank",
+        "summary": "Major contract win demonstrates TCS's strength in digital services and banking solutions. Deal expected to contribute significantly to revenue growth.",
+        "sentiment_score": 0.387,
+        "sentiment_label": "positive",
+        "source": "Economic Times",
+        "published_date": "2024-01-15T07:45:00Z",
+        "url": "https://example.com/news/tcs_001",
+        "relevance_score": 0.95,
+        "keywords": ["TCS", "digital transformation", "banking", "contract", "revenue"]
+      },
+      
+      {
+        "id": "tcs_002",
+        "title": "TCS increases hiring plans for 2024 amid strong demand outlook",
+        "summary": "Company plans to hire 40,000+ freshers this year as demand for IT services remains robust. Focus on emerging technologies and cloud services.",
+        "sentiment_score": 0.245,
+        "sentiment_label": "positive",
+        "source": "Business Today",
+        "published_date": "2024-01-14T12:20:00Z", 
+        "url": "https://example.com/news/tcs_002",
+        "relevance_score": 0.78,
+        "keywords": ["TCS", "hiring", "demand", "IT services", "cloud services"]
+      }
+    ],
+    
+    "INFY.NS": [
+      {
+        "id": "infy_001",
+        "title": "Infosys beats Q3 estimates, raises FY24 revenue guidance",
+        "summary": "Strong performance across all business segments. Management expresses confidence in maintaining growth momentum through focused execution.",
+        "sentiment_score": 0.425,
+        "sentiment_label": "positive",
+        "source": "Moneycontrol",
+        "published_date": "2024-01-15T10:00:00Z",
+        "url": "https://example.com/news/infy_001",
+        "relevance_score": 0.97,
+        "keywords": ["Infosys", "Q3 results", "revenue guidance", "growth momentum"]
+      },
+      
+      {
+        "id": "infy_002",
+        "title": "Infosys Cobalt platform gains traction with 450+ solutions",
+        "summary": "Cloud transformation platform shows strong client adoption. Platform strategy positioning company well for digital transformation market.",
+        "sentiment_score": 0.298,
+        "sentiment_label": "positive",
+        "source": "ET Tech",
+        "published_date": "2024-01-14T15:10:00Z",
+        "url": "https://example.com/news/infy_002", 
+        "relevance_score": 0.83,
+        "keywords": ["Infosys", "Cobalt platform", "cloud", "digital transformation"]
+      }
+    ]
+  },
+  
+  "sentiment_summary": {
+    "overall_sentiment": {
+      "score": 0.156,
+      "label": "positive",
+      "confidence": 0.78
+    },
+    
+    "individual_stocks": {
+      "RELIANCE.NS": {
+        "sentiment_score": 0.251,
+        "sentiment_label": "positive",
+        "article_count": 2,
+        "positive_count": 2,
+        "negative_count": 0,
+        "neutral_count": 0
+      },
+      
+      "TCS.NS": {
+        "sentiment_score": 0.316,
+        "sentiment_label": "positive", 
+        "article_count": 2,
+        "positive_count": 2,
+        "negative_count": 0,
+        "neutral_count": 0
+      },
+      
+      "INFY.NS": {
+        "sentiment_score": 0.362,
+        "sentiment_label": "positive",
+        "article_count": 2,
+        "positive_count": 2,
+        "negative_count": 0,
+        "neutral_count": 0
+      }
+    },
+    
+    "sector_sentiment": {
+      "IT Services": {
+        "sentiment_score": 0.339,
+        "sentiment_label": "positive",
+        "article_count": 4
+      },
+      
+      "Oil & Gas": {
+        "sentiment_score": 0.233,
+        "sentiment_label": "positive", 
+        "article_count": 2
+      }
+    }
+  },
+  
+  "metadata": {
+    "last_updated": "2024-01-15T15:30:00Z",
+    "data_source": "mock",
+    "analysis_period_hours": 24,
+    "total_articles_analyzed": 7,
+    "sentiment_model": "TextBlob",
+    "description": "Mock news sentiment data with realistic Indian market news articles"
+  }
+}

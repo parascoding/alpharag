@@ -1,0 +1,143 @@
+{
+  "market_data": {
+    "market_status": "open",
+    "timestamp": "2024-01-15T15:30:00+05:30",
+    "market_indices": {
+      "NIFTY_50": {
+        "value": 21737.60,
+        "change": 45.30,
+        "change_percent": 0.21
+      },
+      "SENSEX": {
+        "value": 72240.26,
+        "change": 156.63,
+        "change_percent": 0.22
+      }
+    },
+    
+    "stock_prices": {
+      "RELIANCE.NS": {
+        "current_price": 2847.65,
+        "open": 2845.00,
+        "high": 2865.40,
+        "low": 2838.20,
+        "previous_close": 2851.30,
+        "change": -3.65,
+        "change_percent": -0.13,
+        "volume": 2847562,
+        "last_updated": "2024-01-15T15:30:00+05:30"
+      },
+      
+      "TCS.NS": {
+        "current_price": 3687.45,
+        "open": 3695.00,
+        "high": 3712.80,
+        "low": 3678.15,
+        "previous_close": 3692.10,
+        "change": -4.65,
+        "change_percent": -0.13,
+        "volume": 1456782,
+        "last_updated": "2024-01-15T15:30:00+05:30"
+      },
+      
+      "INFY.NS": {
+        "current_price": 1532.25,
+        "open": 1535.40,
+        "high": 1545.60,
+        "low": 1528.90,
+        "previous_close": 1538.75,
+        "change": -6.50,
+        "change_percent": -0.42,
+        "volume": 3264890,
+        "last_updated": "2024-01-15T15:30:00+05:30"
+      }
+    },
+    
+    "technical_indicators": {
+      "RELIANCE.NS": {
+        "sma_5": 2856.42,
+        "sma_20": 2821.75,
+        "sma_50": 2789.33,
+        "rsi": 52.4,
+        "macd": {
+          "macd_line": 12.45,
+          "signal_line": 8.72,
+          "histogram": 3.73
+        },
+        "bollinger_bands": {
+          "upper": 2912.45,
+          "middle": 2847.65,
+          "lower": 2782.85
+        },
+        "volume_ma": 2654230,
+        "high_52w": 3024.90,
+        "low_52w": 2220.30
+      },
+      
+      "TCS.NS": {
+        "sma_5": 3698.84,
+        "sma_20": 3645.67,
+        "sma_50": 3589.22,
+        "rsi": 58.7,
+        "macd": {
+          "macd_line": 45.23,
+          "signal_line": 38.91,
+          "histogram": 6.32
+        },
+        "bollinger_bands": {
+          "upper": 3789.45,
+          "middle": 3687.45,
+          "lower": 3585.45
+        },
+        "volume_ma": 1234567,
+        "high_52w": 4043.90,
+        "low_52w": 3001.25
+      },
+      
+      "INFY.NS": {
+        "sma_5": 1548.76,
+        "sma_20": 1521.43,
+        "sma_50": 1478.91,
+        "rsi": 46.8,
+        "macd": {
+          "macd_line": -8.45,
+          "signal_line": -5.21,
+          "histogram": -3.24
+        },
+        "bollinger_bands": {
+          "upper": 1578.90,
+          "middle": 1532.25,
+          "lower": 1485.60
+        },
+        "volume_ma": 2876543,
+        "high_52w": 1763.05,
+        "low_52w": 1210.85
+      }
+    }
+  },
+  
+  "market_sectors": {
+    "IT": {
+      "index_value": 31245.60,
+      "change_percent": 0.85,
+      "top_gainers": ["TCS.NS", "INFY.NS", "WIPRO.NS"],
+      "top_losers": ["TECHM.NS", "LTIM.NS"]
+    },
+    
+    "Energy": {
+      "index_value": 28934.20,
+      "change_percent": -0.45,
+      "top_gainers": ["ONGC.NS", "BPCL.NS"],
+      "top_losers": ["RELIANCE.NS", "IOC.NS"]
+    }
+  },
+  
+  "metadata": {
+    "last_updated": "2024-01-15T15:30:00+05:30",
+    "data_source": "mock",
+    "market": "NSE",
+    "currency": "INR",
+    "timezone": "Asia/Kolkata",
+    "description": "Mock market data for Indian equities with realistic intraday movements"
+  }
+}
