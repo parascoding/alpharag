@@ -43,9 +43,18 @@ class NewsSentimentAnalyzer:
     def _get_company_keywords(self, symbols: List[str]) -> Dict[str, List[str]]:
         # Map NSE symbols to company names and keywords
         keyword_map = {
-            'RELIANCE.NS': ['reliance', 'ril', 'reliance industries', 'mukesh ambani'],
-            'TCS.NS': ['tcs', 'tata consultancy', 'tata consultancy services'],
-            'INFY.NS': ['infosys', 'infy', 'wipro', 'it services'],
+            'RELIANCE.NS': [
+                'reliance', 'ril', 'reliance industries', 'mukesh ambani', 'ambani',
+                'jamnagar', 'petrochemicals', 'refinery', 'retail', 'jio'
+            ],
+            'TCS.NS': [
+                'tcs', 'tata consultancy', 'tata consultancy services', 'tata group',
+                'it services', 'consulting', 'technology services', 'tata sons', 'tata'
+            ],
+            'INFY.NS': [
+                'infosys', 'infy', 'it services', 'technology', 'consulting',
+                'software services', 'bangalore', 'narayana murthy', 'nandan nilekani'
+            ],
         }
         
         return {symbol: keyword_map.get(symbol, [symbol.replace('.NS', '').lower()]) 
