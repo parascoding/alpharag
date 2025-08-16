@@ -12,7 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **News Sentiment**: Real-time RSS feed analysis with TextBlob sentiment scoring
 - **AI Recommendations**: Claude AI integration for investment strategy and analysis
 - **Email Reports**: Automated portfolio analysis reports with financial scorecards
-- **Mock-First Design**: JSON-based mock data with easy migration to real APIs
+- **Multi-Provider Data System**: Pluggable data providers with intelligent fallback (Yahoo Finance, Alpha Vantage, Mock)
+- **Real Market Data**: Support for live Indian stock market data with automatic fallback to mock data
 
 ## Development Setup
 
@@ -20,6 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Python 3.8+
 - Virtual environment (venv)
 - Required API keys: Anthropic (Claude), Gmail App Password
+- Optional API keys: Alpha Vantage (for real market data)
 
 ### Installation
 ```bash
@@ -48,6 +50,17 @@ EMAIL_TO=user@example.com
 EMAIL_TO=user1@example.com,user2@example.com,admin@company.com
 ```
 
+### Data Provider Configuration
+The system supports multiple data sources with automatic fallback:
+```bash
+# Alpha Vantage API (for real market data)
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+
+# Data Provider Selection
+PRIMARY_DATA_PROVIDER=alpha_vantage  # or 'yahoo', 'mock'
+FALLBACK_DATA_PROVIDERS=mock        # comma-separated fallback list
+```
+
 ## Architecture
 
 ### Core Components
@@ -61,10 +74,11 @@ EMAIL_TO=user1@example.com,user2@example.com,admin@company.com
    - Alpha Vantage API integration for real data (optional)
    - Financial health scoring algorithm with sector-specific benchmarks
 
-3. **Market Data Ingestion** (`src/data_ingestion.py`)
-   - JSON-based mock market data with technical indicators
-   - Real-time price simulation with randomization
-   - Market status and technical analysis
+3. **Market Data Ingestion** (`src/data_ingestion_v2.py`)
+   - Multi-provider data system with intelligent fallback
+   - Real market data from Yahoo Finance and Alpha Vantage
+   - Enhanced caching and rate limiting
+   - Technical indicators and market analysis
 
 4. **News Sentiment Analysis** (`src/news_sentiment.py`)
    - RSS feed parsing for Indian market news
@@ -85,6 +99,24 @@ EMAIL_TO=user1@example.com,user2@example.com,admin@company.com
    - SMTP-based portfolio analysis reports
    - Financial health scorecards with risk assessment
    - Professional formatting with emojis and structured layout
+
+### Data Provider System
+
+The system uses a **pluggable data provider architecture** with automatic fallback:
+
+- **`src/data_providers/base_provider.py`**: Abstract interface for all data providers
+- **`src/data_providers/yahoo_provider.py`**: Yahoo Finance integration via direct HTTP requests
+- **`src/data_providers/alpha_vantage_provider.py`**: Alpha Vantage API with rate limiting and currency conversion
+- **`src/data_providers/mock_provider.py`**: Enhanced mock data with realistic randomization
+- **`src/data_providers/provider_factory.py`**: Factory pattern with intelligent fallback chains
+
+**Fallback Chain:** Yahoo Finance → Alpha Vantage → Mock Data
+
+**Key Benefits:**
+- Automatic provider switching when APIs fail or hit rate limits
+- Zero-downtime operation with mock data fallback
+- Easy provider addition/removal via configuration
+- Real-time portfolio calculation: ₹59,868+ values with 8%+ P&L tracking
 
 ### Mock Data System
 
@@ -112,14 +144,22 @@ The system uses a **JSON-based mock data architecture** for development and test
 - **Run full analysis**: `python main.py --mode analyze`
 - **Test email configuration**: `python main.py --mode test-email`
 - **Validate setup**: `python main.py --mode validate`
+- **Test data providers**: `python test_real_integration.py`
+- **Configure data sources**: `python data_providers_config.py show`
 
 ### Environment Flags
-- **Financial APIs**: Set `USE_REAL_FINANCIAL_APIS=true` to use Alpha Vantage instead of mock data
+- **Data Providers**: Set `PRIMARY_DATA_PROVIDER=alpha_vantage` for real market data (requires API key)
+- **Financial APIs**: Set `USE_REAL_FINANCIAL_APIS=true` to use Alpha Vantage for financial indicators
 - **News Analysis**: Uses RSS feeds by default, falls back to JSON mock data if feeds fail
+
+### Data Provider Configurations
+- **Development**: `python data_providers_config.py test development` (mock data only)
+- **Basic Real**: `python data_providers_config.py test basic_real` (Alpha Vantage + mock fallback)
+- **Production**: `python data_providers_config.py test production` (full fallback chain)
 
 ## Data Sources & API Usage
 
-### Current Data Architecture (85% Mock, 15% Real)
+### Current Data Architecture (Configurable: 100% Mock to 100% Real)
 
 **What We Compute:**
 - Portfolio P&L calculations and performance metrics
@@ -138,12 +178,21 @@ The system uses a **JSON-based mock data architecture** for development and test
 - **Claude AI API**: Investment analysis and recommendations
 - **Email SMTP**: Portfolio report delivery
 - **RSS Feeds**: Real-time Indian market news (with JSON fallback)
+- **Yahoo Finance API**: Real-time stock prices and company data (optional)
+- **Alpha Vantage API**: Financial fundamentals and historical data (optional)
 
 ### API Migration Path
-The system is designed for easy migration from mock to real data:
-1. **Alpha Vantage**: Set `USE_REAL_FINANCIAL_APIS=true` for real financial data
-2. **yfinance**: Can be integrated for real-time stock prices (Python 3.9+ required)
-3. **News APIs**: Can replace RSS feeds for more comprehensive news coverage
+The system supports seamless migration from mock to real data:
+1. **Mock Data**: Default configuration, always available as fallback
+2. **Alpha Vantage**: Set `ALPHA_VANTAGE_API_KEY` for real financial data (500 calls/day free)
+3. **Yahoo Finance**: Implemented via direct HTTP requests (authentication may be required)
+4. **Multi-Provider**: Use provider factory for automatic fallback chains
+
+### Provider Compatibility Issues
+- **yfinance library**: Incompatible with Python 3.8 due to typing syntax in dependencies
+- **Yahoo Finance API**: May require authentication for reliable access
+- **Alpha Vantage**: Rate limited (5 calls/minute free tier) but very reliable
+- **Solution**: Multi-provider architecture ensures system always works via fallback to mock data
 
 ## Portfolio Configuration
 
