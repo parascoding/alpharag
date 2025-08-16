@@ -55,15 +55,26 @@ class AlphaVantageProvider(BaseDataProvider):
                 # Check for API errors
                 if 'Error Message' in data:
                     self.logger.error(f"Alpha Vantage API error: {data['Error Message']}")
+                    self.logger.error(f"Full response: {data}")
                     return None
                     
                 if 'Note' in data:
                     self.logger.warning(f"Alpha Vantage API note: {data['Note']}")
+                    self.logger.error(f"Full response: {data}")
                     return None
                 
+                # Check for rate limit message
+                if 'Information' in data and 'rate limit' in data['Information']:
+                    self.logger.error(f"Alpha Vantage RATE LIMIT EXCEEDED: {data['Information']}")
+                    self.logger.error("🚨 SOLUTION: Either wait 24 hours for reset or upgrade to premium plan")
+                    return None
+                
+                # Log successful response structure for debugging
+                self.logger.debug(f"Alpha Vantage response keys: {list(data.keys())}")
                 return data
             else:
                 self.logger.error(f"HTTP error {response.status_code}: {response.text}")
+                self.logger.error(f"Request URL: {response.url}")
                 return None
                 
         except Exception as e:
@@ -269,9 +280,21 @@ class AlphaVantageProvider(BaseDataProvider):
                 'symbol': 'AAPL'  # Use a reliable US stock for testing
             }
             
+            self.logger.info(f"Testing Alpha Vantage API with key: {self.api_key[:8]}...{self.api_key[-4:]}")
             data = self._make_request(params)
-            available = data is not None and 'Global Quote' in data
             
+            if data is None:
+                self.logger.error("Alpha Vantage returned None response - check logs above for details")
+                return False
+            
+            self.logger.info(f"Alpha Vantage response keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+            
+            if 'Global Quote' not in data:
+                self.logger.error(f"Expected 'Global Quote' key not found. Available keys: {list(data.keys()) if isinstance(data, dict) else 'N/A'}")
+                self.logger.error(f"Full response dump: {data}")
+                return False
+            
+            available = True
             self.logger.info(f"Alpha Vantage availability check: {'✅ Available' if available else '❌ Not available'}")
             return available
             

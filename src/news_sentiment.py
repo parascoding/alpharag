@@ -34,7 +34,7 @@ class NewsSentimentAnalyzer:
             with open(mock_data_path, 'r') as f:
                 data = json.load(f)
             
-            logger.info(f"Loaded mock news data from {mock_data_path}")
+            logger.error(f"Using MOCK news data from {mock_data_path} - RSS feeds not available")
             return data
             
         except Exception as e:
@@ -124,7 +124,7 @@ class NewsSentimentAnalyzer:
                 symbol_articles = news_articles[symbol]
                 news_by_symbol[symbol].extend(symbol_articles)
         
-        logger.info(f"Loaded mock news for {len(symbols)} symbols")
+        logger.error(f"Using MOCK news for {len(symbols)} symbols - RSS feeds failed")
         return news_by_symbol
     
     def get_news_summary(self, symbols: List[str], hours_back: int = 24) -> Dict:
@@ -190,10 +190,10 @@ class NewsSentimentAnalyzer:
         
         summary['total_articles'] = total_articles
         
-        logger.info(
-            f"Mock analysis: {total_articles} articles. Overall sentiment: "
+        logger.error(
+            f"Using MOCK analysis: {total_articles} articles. Overall sentiment: "
             f"{summary['overall_sentiment']['label']} "
-            f"({summary['overall_sentiment']['score']:.3f})"
+            f"({summary['overall_sentiment']['score']:.3f}) - RSS feeds not working"
         )
         
         return summary

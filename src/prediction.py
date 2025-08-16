@@ -299,6 +299,7 @@ Use bullet points and clear headings for readability."""
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict, 
                                      sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
         """Generate simple rule-based predictions if Claude API fails"""
+        logger.error("Claude API FAILED - Using FALLBACK PREDICTIONS with rule-based analysis")
         predictions = {
             'individual_recommendations': {},
             'portfolio_analysis': 'Analysis generated using fallback rules due to API error.',

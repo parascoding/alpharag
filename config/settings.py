@@ -27,6 +27,12 @@ class Settings:
         
         # Optional API keys
         self.ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
+        self.UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN')
+        
+        # Data Provider Configuration
+        self.PRIMARY_DATA_PROVIDER = os.getenv('PRIMARY_DATA_PROVIDER', 'mock')
+        fallback_providers_raw = os.getenv('FALLBACK_DATA_PROVIDERS', 'mock')
+        self.FALLBACK_DATA_PROVIDERS = [provider.strip() for provider in fallback_providers_raw.split(',') if provider.strip()]
         
         # Financial Indicators Configuration
         self.USE_REAL_FINANCIAL_APIS = os.getenv('USE_REAL_FINANCIAL_APIS', 'false').lower() == 'true'

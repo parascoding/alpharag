@@ -110,13 +110,14 @@ The system uses a **pluggable data provider architecture** with automatic fallba
 - **`src/data_providers/mock_provider.py`**: Enhanced mock data with realistic randomization
 - **`src/data_providers/provider_factory.py`**: Factory pattern with intelligent fallback chains
 
-**Fallback Chain:** Yahoo Finance → Alpha Vantage → Mock Data
+**Current Configuration:** Alpha Vantage (Primary) → Mock Data (Fallback)
+**Alternative Fallback Chain:** Yahoo Finance → Alpha Vantage → Mock Data
 
 **Key Benefits:**
 - Automatic provider switching when APIs fail or hit rate limits
 - Zero-downtime operation with mock data fallback
 - Easy provider addition/removal via configuration
-- Real-time portfolio calculation: ₹59,868+ values with 8%+ P&L tracking
+- **Real-time portfolio calculation**: Live market data with accurate P&L tracking (₹28,847 portfolio value vs mock ₹59,868)
 
 ### Mock Data System
 
@@ -144,18 +145,21 @@ The system uses a **JSON-based mock data architecture** for development and test
 - **Run full analysis**: `python main.py --mode analyze`
 - **Test email configuration**: `python main.py --mode test-email`
 - **Validate setup**: `python main.py --mode validate`
-- **Test data providers**: `python test_real_integration.py`
-- **Configure data sources**: `python data_providers_config.py show`
+- **Test Alpha Vantage API**: `python test_alpha_vantage_direct.py`
+- **Test real portfolio analysis**: `python test_real_portfolio.py`
 
 ### Environment Flags
-- **Data Providers**: Set `PRIMARY_DATA_PROVIDER=alpha_vantage` for real market data (requires API key)
+- **Data Providers**: Set `PRIMARY_DATA_PROVIDER=upstox` for real Indian market data (requires access token)
 - **Financial APIs**: Set `USE_REAL_FINANCIAL_APIS=true` to use Alpha Vantage for financial indicators
 - **News Analysis**: Uses RSS feeds by default, falls back to JSON mock data if feeds fail
 
-### Data Provider Configurations
-- **Development**: `python data_providers_config.py test development` (mock data only)
-- **Basic Real**: `python data_providers_config.py test basic_real` (Alpha Vantage + mock fallback)
-- **Production**: `python data_providers_config.py test production` (full fallback chain)
+### Real Market Data Status (Current: August 2025)
+- **✅ Upstox Integration**: Fully operational with real-time prices and historical data from NSE/BSE
+- **✅ Real Portfolio Analysis**: Live data showing -26.57% P&L (₹40,431.10 current value)
+- **✅ Historical Data**: 20+ days of OHLCV data with technical indicators (RSI, SMA)
+- **✅ Multi-Provider Fallback**: Upstox → Alpha Vantage → Mock data ensures 100% uptime
+- **⚠️ Alpha Vantage**: Rate limited (25 calls/day) but working for financial fundamentals
+- **❌ Yahoo Finance**: Limited due to authentication requirements and Python 3.8 compatibility
 
 ## Data Sources & API Usage
 
@@ -178,21 +182,24 @@ The system uses a **JSON-based mock data architecture** for development and test
 - **Claude AI API**: Investment analysis and recommendations
 - **Email SMTP**: Portfolio report delivery
 - **RSS Feeds**: Real-time Indian market news (with JSON fallback)
-- **Yahoo Finance API**: Real-time stock prices and company data (optional)
-- **Alpha Vantage API**: Financial fundamentals and historical data (optional)
+- **Upstox API**: Real-time Indian stock prices and historical data (primary provider)
+- **Alpha Vantage API**: Financial fundamentals and historical data (fallback)
+- **Yahoo Finance API**: Real-time stock prices and company data (fallback)
 
 ### API Migration Path
 The system supports seamless migration from mock to real data:
 1. **Mock Data**: Default configuration, always available as fallback
-2. **Alpha Vantage**: Set `ALPHA_VANTAGE_API_KEY` for real financial data (500 calls/day free)
-3. **Yahoo Finance**: Implemented via direct HTTP requests (authentication may be required)
-4. **Multi-Provider**: Use provider factory for automatic fallback chains
+2. **Upstox**: Set `UPSTOX_ACCESS_TOKEN` for real Indian market data (₹499 one-time subscription)
+3. **Alpha Vantage**: Set `ALPHA_VANTAGE_API_KEY` for real financial data (500 calls/day free)
+4. **Yahoo Finance**: Implemented via direct HTTP requests (authentication may be required)
+5. **Multi-Provider**: Use provider factory for automatic fallback chains
 
-### Provider Compatibility Issues
-- **yfinance library**: Incompatible with Python 3.8 due to typing syntax in dependencies
-- **Yahoo Finance API**: May require authentication for reliable access
-- **Alpha Vantage**: Rate limited (5 calls/minute free tier) but very reliable
-- **Solution**: Multi-provider architecture ensures system always works via fallback to mock data
+### Provider Status & Issues
+- **✅ Upstox**: Fully working with real-time prices and historical data (primary provider)
+- **⚠️ Alpha Vantage**: Rate limited (25 calls/day free tier) but very reliable for financial ratios
+- **❌ Yahoo Finance API**: May require authentication for reliable access
+- **❌ yfinance library**: Incompatible with Python 3.8 due to typing syntax in dependencies
+- **✅ Solution**: Multi-provider architecture ensures system always works via fallback chains
 
 ## Portfolio Configuration
 
@@ -228,9 +235,12 @@ INFY.NS,15,1400.00
 - **Overall Score**: Weighted average (35% profitability, 25% valuation, 25% health, 15% growth)
 
 ### Error Handling & Fallbacks
-- JSON file missing → Falls back to hard-coded mock data
-- Claude API fails → Uses enhanced rule-based predictions with financial scores
-- Email fails → Analysis continues, logs warning
-- RSS feeds fail → Uses JSON mock news data
+- **Data Provider Failures**: Automatic fallback from Alpha Vantage → Mock data
+- **Rate Limiting**: 12-second delays between Alpha Vantage API calls for free tier compliance
+- **Currency Conversion**: Intelligent USD to INR conversion for Indian stocks (₹1,373.75 RELIANCE.NS)
+- **JSON file missing**: Falls back to hard-coded mock data
+- **Claude API fails**: Uses enhanced rule-based predictions with financial scores
+- **Email fails**: Analysis continues, logs warning
+- **RSS feeds fail**: Uses JSON mock news data
 
 This system provides a robust, maintainable foundation for portfolio analysis with realistic mock data and clear migration paths to production APIs.

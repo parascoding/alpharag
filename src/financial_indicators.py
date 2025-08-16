@@ -51,10 +51,11 @@ class FinancialIndicatorsFetcher:
                     # Try real API first, fallback to mock if fails
                     indicators = self._get_real_financial_data(symbol)
                     if not indicators:
-                        logger.warning(f"Real API failed for {symbol}, falling back to mock data")
+                        logger.error(f"Real API FAILED for {symbol} - FALLING BACK TO MOCK DATA - Alpha Vantage not working")
                         indicators = self._generate_mock_financial_data(symbol)
                 else:
                     # Use mock data
+                    logger.error(f"Using MOCK financial data for {symbol} - Real APIs not configured")
                     indicators = self._generate_mock_financial_data(symbol)
                 
                 if indicators:
@@ -85,7 +86,7 @@ class FinancialIndicatorsFetcher:
             with open(mock_data_path, 'r') as f:
                 data = json.load(f)
             
-            logger.info(f"Loaded mock financial data from {mock_data_path}")
+            logger.error(f"Using MOCK financial data from {mock_data_path} - Real APIs not available")
             return data['financial_indicators']
             
         except Exception as e:
@@ -155,7 +156,7 @@ class FinancialIndicatorsFetcher:
                 variation = value * random.uniform(-0.05, 0.05)
                 financial_data[key] = round(value + variation, 2)
         
-        logger.info(f"Generated mock financial data for {symbol} from JSON")
+        logger.error(f"Using MOCK financial data for {symbol} from JSON - Real APIs failed or not configured")
         return financial_data
     
     def _get_real_financial_data(self, symbol: str) -> Optional[Dict[str, Any]]:

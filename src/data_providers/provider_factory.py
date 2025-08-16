@@ -8,6 +8,7 @@ from .base_provider import BaseDataProvider
 from .mock_provider import MockProvider
 from .yahoo_provider import YahooProvider
 from .alpha_vantage_provider import AlphaVantageProvider
+from .upstox_provider import UpstoxProvider
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class ProviderFactory:
         'mock': MockProvider,
         'yahoo': YahooProvider,
         'alpha_vantage': AlphaVantageProvider,
+        'upstox': UpstoxProvider,
     }
     
     @classmethod
@@ -80,7 +82,10 @@ class ProviderFactory:
             
             provider = cls.get_provider(provider_name, **kwargs)
             if provider and provider.is_available():
-                logger.info(f"✅ Using provider: {provider_name}")
+                if provider_name == 'mock':
+                    logger.error(f"⚠️ FALLING BACK TO MOCK DATA: {provider_name} - Real APIs failed")
+                else:
+                    logger.info(f"✅ Using provider: {provider_name}")
                 return provider
             else:
                 logger.warning(f"⚠️  Provider {provider_name} not available, trying next...")

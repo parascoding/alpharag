@@ -36,7 +36,7 @@ class MockProvider(BaseDataProvider):
             with open(mock_data_path, 'r') as f:
                 data = json.load(f)
             
-            self.logger.info(f"Loaded mock data from {mock_data_path}")
+            self.logger.error(f"Using MOCK data from {mock_data_path} - Real APIs not available")
             return data['market_data']
             
         except Exception as e:
@@ -89,7 +89,7 @@ class MockProvider(BaseDataProvider):
                 variation = base_price * random.uniform(-0.02, 0.02)
                 price = base_price + variation
                 
-                self.logger.info(f"Mock price for {symbol}: ₹{price:.2f}")
+                self.logger.error(f"Using MOCK price for {symbol}: ₹{price:.2f} - Real price API not available")
                 return float(price)
             
             self.logger.warning(f"No price data found for {symbol}")
@@ -103,14 +103,14 @@ class MockProvider(BaseDataProvider):
         """Get current prices for multiple symbols"""
         prices = {}
         
-        self.logger.info(f"Fetching mock prices for {len(symbols)} symbols")
+        self.logger.error(f"Using MOCK prices for {len(symbols)} symbols - Real price APIs not available")
         
         for symbol in symbols:
             price = self.get_current_price(symbol)
             prices[symbol] = price if price is not None else 0.0
         
         successful = len([p for p in prices.values() if p > 0])
-        self.logger.info(f"Successfully fetched {successful}/{len(symbols)} mock prices")
+        self.logger.error(f"Using MOCK prices: {successful}/{len(symbols)} symbols - Real APIs not working")
         return prices
     
     def get_historical_data(self, symbol: str, period: str = "1mo") -> Optional[pd.DataFrame]:
@@ -154,7 +154,7 @@ class MockProvider(BaseDataProvider):
             hist_data['SMA_20'] = hist_data['Close'].rolling(window=20).mean()
             hist_data['RSI'] = self._calculate_rsi(hist_data['Close'])
             
-            self.logger.info(f"Generated mock historical data for {symbol}: {len(hist_data)} days")
+            self.logger.error(f"Using MOCK historical data for {symbol}: {len(hist_data)} days - Real APIs not available")
             return hist_data
             
         except Exception as e:
@@ -180,7 +180,7 @@ class MockProvider(BaseDataProvider):
                     'timestamp': datetime.now().isoformat()
                 })
                 
-                self.logger.info(f"Mock company info for {symbol}: {info['name']}")
+                self.logger.error(f"Using MOCK company info for {symbol}: {info['name']} - Real APIs not available")
                 return info
             
             self.logger.warning(f"No company info found for {symbol}")

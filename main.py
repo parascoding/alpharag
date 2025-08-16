@@ -60,10 +60,16 @@ class AlphaRAGOrchestrator:
             logger.info("✅ Portfolio manager initialized")
             
             # Initialize enhanced data ingestion with multi-provider support
+            provider_kwargs = {}
+            if settings.ALPHA_VANTAGE_API_KEY:
+                provider_kwargs['api_key'] = settings.ALPHA_VANTAGE_API_KEY
+            if settings.UPSTOX_ACCESS_TOKEN:
+                provider_kwargs['access_token'] = settings.UPSTOX_ACCESS_TOKEN
+            
             self.data_ingestion = MarketDataIngestionV2(
-                primary_provider=os.getenv('PRIMARY_DATA_PROVIDER', 'alpha_vantage'),
-                fallback_providers=os.getenv('FALLBACK_DATA_PROVIDERS', 'mock').split(','),
-                api_key=settings.ALPHA_VANTAGE_API_KEY
+                primary_provider=settings.PRIMARY_DATA_PROVIDER,
+                fallback_providers=settings.FALLBACK_DATA_PROVIDERS,
+                **provider_kwargs
             )
             logger.info(f"✅ Data ingestion initialized with provider: {self.data_ingestion.provider.name}")
             
