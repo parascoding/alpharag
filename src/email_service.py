@@ -2,7 +2,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,23 +14,34 @@ class EmailService:
         self.username = username
         self.password = password
     
-    def send_portfolio_analysis(self, to_email: str, portfolio_data: Dict, 
+    def send_portfolio_analysis(self, to_emails: Union[str, List[str]], portfolio_data: Dict, 
                                market_data: Dict, sentiment_data: Dict, 
-                               predictions: Dict) -> bool:
+                               predictions: Dict, financial_data: Optional[Dict] = None) -> bool:
         try:
+            # Convert single email to list for consistency
+            if isinstance(to_emails, str):
+                to_emails = [to_emails]
+            
             subject = f"AlphaRAG Portfolio Analysis - {datetime.now().strftime('%Y-%m-%d')}"
             
             # Create email content
             email_body = self._create_analysis_email(portfolio_data, market_data, 
-                                                   sentiment_data, predictions)
+                                                   sentiment_data, predictions, financial_data)
             
-            # Send email
-            success = self._send_email(to_email, subject, email_body)
+            # Send email to all recipients
+            success_count = 0
+            for email in to_emails:
+                if self._send_email(email.strip(), subject, email_body):
+                    success_count += 1
+                    logger.info(f"Portfolio analysis email sent successfully to {email}")
+                else:
+                    logger.error(f"Failed to send email to {email}")
+            
+            # Consider successful if sent to at least one recipient
+            success = success_count > 0
             
             if success:
-                logger.info(f"Portfolio analysis email sent successfully to {to_email}")
-            else:
-                logger.error(f"Failed to send email to {to_email}")
+                logger.info(f"Portfolio analysis sent to {success_count}/{len(to_emails)} recipients")
             
             return success
             
@@ -39,7 +50,8 @@ class EmailService:
             return False
     
     def _create_analysis_email(self, portfolio_data: Dict, market_data: Dict,
-                              sentiment_data: Dict, predictions: Dict) -> str:
+                              sentiment_data: Dict, predictions: Dict, 
+                              financial_data: Optional[Dict] = None) -> str:
         
         # Get current timestamp
         timestamp = datetime.now().strftime('%B %d, %Y at %I:%M %p')
@@ -62,6 +74,10 @@ class EmailService:
             "-" * 22,
             self._format_sentiment_summary(sentiment_data),
             "",
+            "💰 FINANCIAL HEALTH SCORECARD" if financial_data else "",
+            "-" * 33 if financial_data else "",
+            self._format_financial_scorecard(financial_data) if financial_data else "",
+            "" if financial_data else "",
             "🎯 INVESTMENT RECOMMENDATIONS",
             "-" * 31,
             self._format_predictions(predictions),
@@ -173,6 +189,70 @@ class EmailService:
         
         return "\n".join(lines)
     
+    def _format_financial_scorecard(self, financial_data: Optional[Dict]) -> str:
+        """Format financial health scorecard for email"""
+        if not financial_data:
+            return "Financial indicators not available."
+        
+        lines = []
+        
+        for symbol, data in financial_data.items():
+            health_score = data.get('health_score', {})
+            overall_score = health_score.get('overall_score', 0)
+            rating = health_score.get('rating', 'Unknown')
+            rating_emoji = health_score.get('rating_emoji', '❓')
+            
+            lines.extend([
+                f"{rating_emoji} {symbol} ({data.get('sector', 'Unknown')} Sector):",
+                f"   Overall Score: {overall_score:.1f}/10 ({rating})",
+                f"   Market Cap: ₹{data.get('market_cap_cr', 0):,.0f} crores",
+                ""
+            ])
+            
+            # Key financial metrics in a compact format
+            lines.extend([
+                "   📊 Key Ratios:",
+                f"      P/E: {data.get('pe_ratio', 0):.1f}x, P/B: {data.get('pb_ratio', 0):.1f}x, ROE: {data.get('roe', 0):.1f}%",
+                f"      Debt/Equity: {data.get('debt_to_equity', 0):.2f}, Current Ratio: {data.get('current_ratio', 0):.2f}",
+                f"      Net Margin: {data.get('net_profit_margin', 0):.1f}%, Revenue Growth: {data.get('revenue_growth_yoy', 0):+.1f}%",
+                ""
+            ])
+            
+            # Score breakdown
+            lines.extend([
+                "   🎯 Score Breakdown:",
+                f"      Valuation: {health_score.get('valuation_score', 0):.1f}/10",
+                f"      Profitability: {health_score.get('profitability_score', 0):.1f}/10",
+                f"      Financial Health: {health_score.get('financial_health_score', 0):.1f}/10", 
+                f"      Growth: {health_score.get('growth_score', 0):.1f}/10",
+                ""
+            ])
+            
+            # Risk assessment
+            debt_equity = data.get('debt_to_equity', 0)
+            current_ratio = data.get('current_ratio', 0)
+            
+            risk_factors = []
+            if debt_equity > 0.8:
+                risk_factors.append("High debt")
+            if current_ratio < 1.0:
+                risk_factors.append("Liquidity concern")
+            if data.get('roe', 0) < 10:
+                risk_factors.append("Low profitability")
+            
+            if risk_factors:
+                lines.extend([
+                    f"   ⚠️  Risk Factors: {', '.join(risk_factors)}",
+                    ""
+                ])
+            else:
+                lines.extend([
+                    "   ✅ No major risk factors identified",
+                    ""
+                ])
+        
+        return "\n".join(lines)
+    
     def _format_predictions(self, predictions: Dict) -> str:
         lines = []
         
@@ -258,9 +338,13 @@ class EmailService:
             logger.error(f"SMTP error: {e}")
             return False
     
-    def send_test_email(self, to_email: str) -> bool:
+    def send_test_email(self, to_emails: Union[str, List[str]]) -> bool:
         """Send a test email to verify configuration"""
         try:
+            # Convert single email to list for consistency
+            if isinstance(to_emails, str):
+                to_emails = [to_emails]
+            
             subject = "AlphaRAG Test Email"
             body = f"""
 Hello!
@@ -271,16 +355,26 @@ If you received this email, your SMTP settings are working correctly.
 
 Timestamp: {datetime.now().isoformat()}
 
+Recipient list: {', '.join(to_emails)}
+
 Best regards,
 AlphaRAG System
             """.strip()
             
-            success = self._send_email(to_email, subject, body)
+            # Send test email to all recipients
+            success_count = 0
+            for email in to_emails:
+                if self._send_email(email.strip(), subject, body):
+                    success_count += 1
+                    logger.info(f"Test email sent successfully to {email}")
+                else:
+                    logger.error(f"Failed to send test email to {email}")
+            
+            # Consider successful if sent to at least one recipient
+            success = success_count > 0
             
             if success:
-                logger.info(f"Test email sent successfully to {to_email}")
-            else:
-                logger.error(f"Failed to send test email to {to_email}")
+                logger.info(f"Test email sent to {success_count}/{len(to_emails)} recipients")
             
             return success
             

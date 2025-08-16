@@ -102,6 +102,62 @@ class SimpleRAGEngine:
         
         self.add_document(doc_id, content, metadata)
     
+    def add_financial_indicators(self, symbol: str, financial_data: Dict, health_score: Dict) -> None:
+        doc_id = f"financial_indicators_{symbol}"
+        
+        content_parts = [
+            f"Stock symbol: {symbol}",
+            f"Sector: {financial_data.get('sector', 'Unknown')}",
+            f"Market cap: {financial_data.get('market_cap_cr', 0):.0f} crores",
+            
+            # Valuation metrics
+            f"P/E ratio: {financial_data.get('pe_ratio', 0):.1f}",
+            f"P/B ratio: {financial_data.get('pb_ratio', 0):.1f}",
+            f"P/S ratio: {financial_data.get('ps_ratio', 0):.1f}",
+            f"EV/EBITDA: {financial_data.get('ev_ebitda', 0):.1f}",
+            
+            # Profitability metrics
+            f"ROE: {financial_data.get('roe', 0):.1f}%",
+            f"ROA: {financial_data.get('roa', 0):.1f}%",
+            f"ROIC: {financial_data.get('roic', 0):.1f}%",
+            f"Gross margin: {financial_data.get('gross_margin', 0):.1f}%",
+            f"Operating margin: {financial_data.get('operating_margin', 0):.1f}%",
+            f"Net profit margin: {financial_data.get('net_profit_margin', 0):.1f}%",
+            
+            # Financial health
+            f"Debt to equity: {financial_data.get('debt_to_equity', 0):.2f}",
+            f"Current ratio: {financial_data.get('current_ratio', 0):.2f}",
+            f"Quick ratio: {financial_data.get('quick_ratio', 0):.2f}",
+            
+            # Growth metrics
+            f"Revenue growth YoY: {financial_data.get('revenue_growth_yoy', 0):.1f}%",
+            f"Earnings growth YoY: {financial_data.get('earnings_growth_yoy', 0):.1f}%",
+            
+            # Dividend info
+            f"Dividend yield: {financial_data.get('dividend_yield', 0):.1f}%",
+            
+            # Financial health score
+            f"Financial health score: {health_score.get('overall_score', 0):.1f}/10",
+            f"Rating: {health_score.get('rating', 'Unknown')}",
+            f"Valuation score: {health_score.get('valuation_score', 0):.1f}/10",
+            f"Profitability score: {health_score.get('profitability_score', 0):.1f}/10",
+            f"Financial health score: {health_score.get('financial_health_score', 0):.1f}/10",
+            f"Growth score: {health_score.get('growth_score', 0):.1f}/10"
+        ]
+        
+        content = " ".join(content_parts)
+        
+        metadata = {
+            'type': 'financial_indicators',
+            'symbol': symbol,
+            'sector': financial_data.get('sector', 'Unknown'),
+            'data_source': financial_data.get('data_source', 'unknown'),
+            'data': financial_data,
+            'health_score': health_score
+        }
+        
+        self.add_document(doc_id, content, metadata)
+
     def add_portfolio_data(self, portfolio_summary: Dict, portfolio_value: Dict) -> None:
         doc_id = "portfolio_overview"
         

@@ -14,10 +14,11 @@ class ClaudePredictionEngine:
         self.model = "claude-3-sonnet-20240229"
     
     def generate_predictions(self, rag_context: str, portfolio_data: Dict, 
-                           market_data: Dict, sentiment_data: Dict) -> Dict:
+                           market_data: Dict, sentiment_data: Dict, 
+                           financial_data: Optional[Dict] = None) -> Dict:
         try:
             # Prepare the analysis prompt
-            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data)
+            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data)
             
             # Call Claude API
             response = self.client.messages.create(
@@ -38,10 +39,11 @@ class ClaudePredictionEngine:
             
         except Exception as e:
             logger.error(f"Error generating predictions with Claude: {e}")
-            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data)
+            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
     
     def _build_analysis_prompt(self, rag_context: str, portfolio_data: Dict, 
-                              market_data: Dict, sentiment_data: Dict) -> str:
+                              market_data: Dict, sentiment_data: Dict, 
+                              financial_data: Optional[Dict] = None) -> str:
         prompt = f"""You are an expert financial analyst specializing in Indian equity markets. 
         
 Analyze the following portfolio and market data to provide investment recommendations.
@@ -51,6 +53,8 @@ PORTFOLIO INFORMATION:
 
 MARKET DATA:
 {self._format_market_data(market_data)}
+
+{self._format_financial_data(financial_data) if financial_data else "FINANCIAL FUNDAMENTALS: Not available"}
 
 NEWS SENTIMENT ANALYSIS:
 {self._format_sentiment_data(sentiment_data)}
@@ -89,6 +93,59 @@ Use bullet points and clear headings for readability."""
 
         return prompt
     
+    def _format_financial_data(self, financial_data: Dict) -> str:
+        """Format comprehensive financial data for Claude analysis"""
+        if not financial_data:
+            return "No financial indicators data available."
+        
+        lines = ["FINANCIAL FUNDAMENTALS ANALYSIS:"]
+        
+        for symbol, data in financial_data.items():
+            health_score = data.get('health_score', {})
+            lines.extend([
+                f"\n{symbol} ({data.get('sector', 'Unknown')} Sector):",
+                f"Market Cap: ₹{data.get('market_cap_cr', 0):,.0f} crores",
+                "",
+                "VALUATION METRICS:",
+                f"  P/E Ratio: {data.get('pe_ratio', 0):.1f}x",
+                f"  P/B Ratio: {data.get('pb_ratio', 0):.1f}x", 
+                f"  P/S Ratio: {data.get('ps_ratio', 0):.1f}x",
+                f"  EV/EBITDA: {data.get('ev_ebitda', 0):.1f}x",
+                "",
+                "PROFITABILITY METRICS:",
+                f"  ROE: {data.get('roe', 0):.1f}% (Return on Equity)",
+                f"  ROA: {data.get('roa', 0):.1f}% (Return on Assets)",
+                f"  ROIC: {data.get('roic', 0):.1f}% (Return on Invested Capital)",
+                f"  Gross Margin: {data.get('gross_margin', 0):.1f}%",
+                f"  Operating Margin: {data.get('operating_margin', 0):.1f}%",
+                f"  Net Profit Margin: {data.get('net_profit_margin', 0):.1f}%",
+                "",
+                "FINANCIAL HEALTH:",
+                f"  Debt-to-Equity: {data.get('debt_to_equity', 0):.2f}",
+                f"  Current Ratio: {data.get('current_ratio', 0):.2f}",
+                f"  Quick Ratio: {data.get('quick_ratio', 0):.2f}",
+                f"  Interest Coverage: {data.get('interest_coverage', 0):.1f}x",
+                "",
+                "GROWTH INDICATORS:",
+                f"  Revenue Growth (YoY): {data.get('revenue_growth_yoy', 0):+.1f}%",
+                f"  Earnings Growth (YoY): {data.get('earnings_growth_yoy', 0):+.1f}%",
+                f"  Book Value Growth (YoY): {data.get('book_value_growth_yoy', 0):+.1f}%",
+                "",
+                "DIVIDEND METRICS:",
+                f"  Dividend Yield: {data.get('dividend_yield', 0):.1f}%",
+                f"  Payout Ratio: {data.get('dividend_payout_ratio', 0):.1f}%",
+                f"  Coverage Ratio: {data.get('dividend_coverage_ratio', 0):.1f}x",
+                "",
+                f"FINANCIAL HEALTH SCORE: {health_score.get('overall_score', 0):.1f}/10 ({health_score.get('rating', 'Unknown')})",
+                f"  - Valuation: {health_score.get('valuation_score', 0):.1f}/10",
+                f"  - Profitability: {health_score.get('profitability_score', 0):.1f}/10", 
+                f"  - Financial Health: {health_score.get('financial_health_score', 0):.1f}/10",
+                f"  - Growth: {health_score.get('growth_score', 0):.1f}/10",
+                ""
+            ])
+        
+        return "\n".join(lines)
+
     def _format_portfolio_data(self, portfolio_data: Dict) -> str:
         summary = portfolio_data['summary']
         holdings = portfolio_data['holdings']
@@ -240,8 +297,9 @@ Use bullet points and clear headings for readability."""
         return 5  # Default confidence
     
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict, 
-                                     sentiment_data: Dict) -> Dict:
+                                     sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
         """Generate simple rule-based predictions if Claude API fails"""
+        logger.error("Claude API FAILED - Using FALLBACK PREDICTIONS with rule-based analysis")
         predictions = {
             'individual_recommendations': {},
             'portfolio_analysis': 'Analysis generated using fallback rules due to API error.',
@@ -251,27 +309,66 @@ Use bullet points and clear headings for readability."""
             'fallback_mode': True
         }
         
-        # Simple rule-based recommendations
+        # Enhanced rule-based recommendations using financial data
         for holding in portfolio_data['holdings']:
             symbol = holding['symbol']
             pnl_percent = holding['pnl_percent']
             
             sentiment_score = sentiment_data['individual_sentiment'].get(symbol, {}).get('sentiment_score', 0)
             
-            if pnl_percent > 10 and sentiment_score < -0.2:
-                recommendation = 'SELL'
-                confidence = 7
-            elif pnl_percent < -5 and sentiment_score > 0.2:
-                recommendation = 'BUY'
-                confidence = 6
+            # Get financial health score if available
+            financial_score = 5  # Default
+            financial_reasoning = ""
+            if financial_data and symbol in financial_data:
+                fin_data = financial_data[symbol]
+                health_score = fin_data.get('health_score', {})
+                financial_score = health_score.get('overall_score', 5)
+                
+                # Create financial reasoning
+                pe_ratio = fin_data.get('pe_ratio', 0)
+                roe = fin_data.get('roe', 0)
+                debt_equity = fin_data.get('debt_to_equity', 0)
+                
+                financial_reasoning = f", Financial Score: {financial_score:.1f}/10"
+                
+                # Enhanced rules considering financials
+                if financial_score >= 7 and pnl_percent < -10 and sentiment_score >= -0.1:
+                    recommendation = 'BUY'
+                    confidence = 8
+                    reasoning = f'Strong financials + oversold + neutral sentiment{financial_reasoning}'
+                elif financial_score <= 4 and pnl_percent > 15:
+                    recommendation = 'SELL'
+                    confidence = 7
+                    reasoning = f'Weak financials + overvalued{financial_reasoning}'
+                elif pnl_percent > 10 and sentiment_score < -0.2:
+                    recommendation = 'SELL'
+                    confidence = 6
+                    reasoning = f'Rule-based: P&L {pnl_percent:.2f}%, Sentiment {sentiment_score:.3f}{financial_reasoning}'
+                elif pnl_percent < -5 and sentiment_score > 0.2 and financial_score >= 6:
+                    recommendation = 'BUY'
+                    confidence = 6
+                    reasoning = f'Rule-based: P&L {pnl_percent:.2f}%, Sentiment {sentiment_score:.3f}{financial_reasoning}'
+                else:
+                    recommendation = 'HOLD'
+                    confidence = 5
+                    reasoning = f'Rule-based: P&L {pnl_percent:.2f}%, Sentiment {sentiment_score:.3f}{financial_reasoning}'
             else:
-                recommendation = 'HOLD'
-                confidence = 5
+                # Original logic for backward compatibility
+                if pnl_percent > 10 and sentiment_score < -0.2:
+                    recommendation = 'SELL'
+                    confidence = 7
+                elif pnl_percent < -5 and sentiment_score > 0.2:
+                    recommendation = 'BUY'
+                    confidence = 6
+                else:
+                    recommendation = 'HOLD'
+                    confidence = 5
+                reasoning = f'Rule-based: P&L {pnl_percent:.2f}%, Sentiment {sentiment_score:.3f}'
             
             predictions['individual_recommendations'][symbol] = {
                 'recommendation': recommendation,
                 'confidence': confidence,
-                'reasoning': f'Rule-based: P&L {pnl_percent:.2f}%, Sentiment {sentiment_score:.3f}'
+                'reasoning': reasoning
             }
         
         return predictions
