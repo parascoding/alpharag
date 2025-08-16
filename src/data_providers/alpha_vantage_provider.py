@@ -105,16 +105,23 @@ class AlphaVantageProvider(BaseDataProvider):
                 
                 if price:
                     price_float = float(price)
-                    self.logger.info(f"✅ Current price for {symbol}: ${price_float:.2f}")
                     
-                    # For Indian stocks, convert USD to INR (approximate)
+                    # Check if this is already in the correct currency
                     if symbol.endswith('.NS') or symbol.endswith('.BO'):
-                        # Rough conversion - in production, you'd get real exchange rates
-                        price_inr = price_float * 83  # Approximate USD to INR
-                        self.logger.info(f"✅ Converted to INR: ₹{price_inr:.2f}")
-                        return price_inr
-                    
-                    return price_float
+                        # Indian stocks from Alpha Vantage are typically already in INR
+                        # Only convert if the price seems to be in USD (< 1000 for major Indian stocks)
+                        if price_float < 1000:
+                            price_inr = price_float * 83  # Convert USD to INR
+                            self.logger.info(f"✅ Converted {symbol}: ${price_float:.2f} -> ₹{price_inr:.2f}")
+                            return price_inr
+                        else:
+                            # Already in INR
+                            self.logger.info(f"✅ Current price for {symbol}: ₹{price_float:.2f}")
+                            return price_float
+                    else:
+                        # US stocks in USD
+                        self.logger.info(f"✅ Current price for {symbol}: ${price_float:.2f}")
+                        return price_float
                     
             self.logger.warning(f"No price data found for {symbol}")
             return None
@@ -175,10 +182,17 @@ class AlphaVantageProvider(BaseDataProvider):
                 
                 hist_data = pd.DataFrame(df_data).set_index('Date').sort_index()
                 
-                # For Indian stocks, convert to INR
+                # For Indian stocks, check if conversion to INR is needed
                 if symbol.endswith('.NS') or symbol.endswith('.BO'):
-                    for col in ['Open', 'High', 'Low', 'Close']:
-                        hist_data[col] = hist_data[col] * 83  # USD to INR conversion
+                    # Check if prices seem to be in USD (average close price < 1000)
+                    avg_close = hist_data['Close'].mean()
+                    if avg_close < 1000:
+                        # Convert USD to INR
+                        for col in ['Open', 'High', 'Low', 'Close']:
+                            hist_data[col] = hist_data[col] * 83
+                        self.logger.info(f"Converted historical data from USD to INR for {symbol}")
+                    else:
+                        self.logger.info(f"Historical data already in INR for {symbol}")
                 
                 # Calculate technical indicators
                 hist_data['SMA_5'] = hist_data['Close'].rolling(window=5).mean()

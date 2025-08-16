@@ -15,12 +15,13 @@ sys.path.append(str(Path(__file__).parent))
 
 from config.settings import settings
 from src.portfolio_manager import PortfolioManager
-from src.data_ingestion import MarketDataIngestion
+from src.data_ingestion_v2 import MarketDataIngestionV2
 from src.news_sentiment import NewsSentimentAnalyzer
 from src.rag_engine import SimpleRAGEngine
 from src.prediction import ClaudePredictionEngine
 from src.email_service import EmailService
 from src.financial_indicators import FinancialIndicatorsFetcher
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -58,9 +59,13 @@ class AlphaRAGOrchestrator:
             self.portfolio_manager = PortfolioManager(settings.PORTFOLIO_FILE)
             logger.info("✅ Portfolio manager initialized")
             
-            # Initialize data ingestion
-            self.data_ingestion = MarketDataIngestion(settings.ALPHA_VANTAGE_API_KEY)
-            logger.info("✅ Data ingestion initialized")
+            # Initialize enhanced data ingestion with multi-provider support
+            self.data_ingestion = MarketDataIngestionV2(
+                primary_provider=os.getenv('PRIMARY_DATA_PROVIDER', 'alpha_vantage'),
+                fallback_providers=os.getenv('FALLBACK_DATA_PROVIDERS', 'mock').split(','),
+                api_key=settings.ALPHA_VANTAGE_API_KEY
+            )
+            logger.info(f"✅ Data ingestion initialized with provider: {self.data_ingestion.provider.name}")
             
             # Initialize news sentiment analyzer
             self.news_analyzer = NewsSentimentAnalyzer(settings.RSS_FEEDS)
