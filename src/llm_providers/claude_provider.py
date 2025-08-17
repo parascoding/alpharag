@@ -64,15 +64,16 @@ class ClaudeProvider(BaseLLMProvider):
 
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
-                           financial_data: Optional[Dict] = None) -> Dict:
+                           financial_data: Optional[Dict] = None,
+                           available_cash: float = 0.0) -> Dict:
         """Generate predictions using Claude"""
         try:
             if not self.client:
                 self.logger.error("Claude client not initialized")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Build the analysis prompt
-            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data)
+            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             self.logger.info("🤖 Generating predictions with Claude...")
 
@@ -89,7 +90,7 @@ class ClaudeProvider(BaseLLMProvider):
 
             if not response or not response.content or not response.content[0].text:
                 self.logger.error("Claude returned empty response")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Parse Claude's response
             analysis_text = response.content[0].text
@@ -106,12 +107,13 @@ class ClaudeProvider(BaseLLMProvider):
 
         except Exception as e:
             self.logger.error(f"❌ Error generating predictions with Claude: {e}")
-            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
     def _parse_predictions(self, analysis_text: str) -> Dict:
         """Parse Claude's structured response"""
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': '',
             'action_items': [],
             'market_insights': '',
@@ -203,8 +205,9 @@ class ClaudeProvider(BaseLLMProvider):
         return 5  # Default confidence
 
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
-                                     sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
+                                     sentiment_data: Dict, financial_data: Optional[Dict] = None,
+                                     available_cash: float = 0.0) -> Dict:
         """Generate fallback predictions when Claude fails"""
-        predictions = super()._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+        predictions = super()._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
         predictions['provider'] = 'claude_fallback'
         return predictions

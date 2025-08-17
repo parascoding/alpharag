@@ -80,15 +80,16 @@ class GeminiProvider(BaseLLMProvider):
 
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
-                           financial_data: Optional[Dict] = None) -> Dict:
+                           financial_data: Optional[Dict] = None,
+                           available_cash: float = 0.0) -> Dict:
         """Generate predictions using Gemini"""
         try:
             if not self.client:
                 self.logger.error("Gemini client not initialized")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Build the analysis prompt
-            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data)
+            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             self.logger.info("🤖 Generating predictions with Gemini...")
 
@@ -115,19 +116,19 @@ class GeminiProvider(BaseLLMProvider):
 
             if response.status_code != 200:
                 self.logger.error(f"Gemini API error: {response.status_code} - {response.text}")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             data = response.json()
 
             if 'candidates' not in data or not data['candidates']:
                 self.logger.error("Gemini returned no candidates")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Extract the generated text
             candidate = data['candidates'][0]
             if 'content' not in candidate or 'parts' not in candidate['content']:
-                self.logger.error("Gemini returned malformed response")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                self.logger.error(f"Gemini returned malformed response. Response structure: {json.dumps(data, indent=2)}")
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             analysis_text = candidate['content']['parts'][0]['text']
 
@@ -141,7 +142,7 @@ class GeminiProvider(BaseLLMProvider):
 
         except Exception as e:
             self.logger.error(f"❌ Error generating predictions with Gemini: {e}")
-            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
     def _parse_predictions(self, analysis_text: str) -> Dict:
         """Parse Gemini's structured response"""
@@ -149,6 +150,7 @@ class GeminiProvider(BaseLLMProvider):
         
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': '',
             'action_items': [],
             'market_insights': '',
@@ -264,6 +266,22 @@ class GeminiProvider(BaseLLMProvider):
 
             self.logger.info(f"Successfully parsed {len(predictions['individual_recommendations'])} stock recommendations")
 
+            # Parse NEW STOCK PURCHASE RECOMMENDATIONS section
+            new_stock_patterns = [
+                r'NEW STOCK PURCHASE RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+PORTFOLIO|3\.\s+PORTFOLIO|$)',
+                r'2\.\s+NEW STOCK PURCHASE RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+PORTFOLIO|3\.\s+PORTFOLIO|$)',
+                r'NEW STOCK.{0,20}RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+PORTFOLIO|3\.\s+PORTFOLIO|$)'
+            ]
+            
+            for pattern in new_stock_patterns:
+                match = re.search(pattern, analysis_text, re.DOTALL | re.IGNORECASE)
+                if match:
+                    new_stock_section = match.group(1).strip()
+                    self._parse_new_stock_recommendations(new_stock_section, predictions)
+                    break
+
+            self.logger.info(f"Successfully parsed {len(predictions['new_stock_recommendations'])} new stock recommendations")
+
         except Exception as e:
             self.logger.error(f"Error parsing Gemini predictions: {e}")
             predictions['parsing_error'] = str(e)
@@ -351,9 +369,84 @@ class GeminiProvider(BaseLLMProvider):
         
         return reasoning or "Analysis available in detailed report"
 
+    def _parse_new_stock_recommendations(self, section_text: str, predictions: Dict):
+        """Parse the new stock purchase recommendations section"""
+        lines = section_text.split('\n')
+        current_stock = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('Available Cash:'):
+                continue
+            
+            # Look for stock symbol patterns
+            symbol_match = re.search(r'([A-Z0-9]+\.NS|[A-Z0-9]+\.BSE)', line.upper())
+            if symbol_match:
+                # Save previous stock if complete
+                if current_stock and 'symbol' in current_stock:
+                    predictions['new_stock_recommendations'][current_stock['symbol']] = current_stock
+                
+                # Start new stock
+                current_stock = {'symbol': symbol_match.group(1)}
+                
+                # Extract recommendation amount from same line
+                amount_match = re.search(r'₹([\d,]+)', line)
+                if amount_match:
+                    current_stock['recommended_amount'] = amount_match.group(1).replace(',', '')
+                
+                # Extract current price
+                price_match = re.search(r'Current.*?₹([\d,.]+)', line, re.IGNORECASE)
+                if price_match:
+                    current_stock['current_price'] = price_match.group(1).replace(',', '')
+                
+                # Extract target price
+                target_match = re.search(r'Target.*?₹([\d,.]+)', line, re.IGNORECASE)
+                if target_match:
+                    current_stock['target_price'] = target_match.group(1).replace(',', '')
+                    
+            elif current_stock:
+                # Continue parsing details for current stock
+                if 'recommended amount' in line.lower() and 'recommended_amount' not in current_stock:
+                    amount_match = re.search(r'₹([\d,]+)', line)
+                    if amount_match:
+                        current_stock['recommended_amount'] = amount_match.group(1).replace(',', '')
+                
+                elif 'current price' in line.lower() and 'current_price' not in current_stock:
+                    price_match = re.search(r'₹([\d,.]+)', line)
+                    if price_match:
+                        current_stock['current_price'] = price_match.group(1).replace(',', '')
+                
+                elif 'target price' in line.lower() and 'target_price' not in current_stock:
+                    price_match = re.search(r'₹([\d,.]+)', line)
+                    if price_match:
+                        current_stock['target_price'] = price_match.group(1).replace(',', '')
+                
+                elif 'sector' in line.lower() and 'sector' not in current_stock:
+                    current_stock['sector'] = line.split(':', 1)[1].strip() if ':' in line else line
+                
+                elif 'investment thesis' in line.lower() or 'why' in line.lower():
+                    current_stock['investment_thesis'] = line.split(':', 1)[1].strip() if ':' in line else line
+                
+                elif 'risk level' in line.lower():
+                    risk_match = re.search(r'(LOW|MEDIUM|HIGH)', line.upper())
+                    if risk_match:
+                        current_stock['risk_level'] = risk_match.group(1)
+                
+                elif 'confidence' in line.lower():
+                    conf_match = re.search(r'(\d+)', line)
+                    if conf_match:
+                        current_stock['confidence'] = int(conf_match.group(1))
+        
+        # Save last stock
+        if current_stock and 'symbol' in current_stock:
+            predictions['new_stock_recommendations'][current_stock['symbol']] = current_stock
+        
+        self.logger.info(f"Parsed {len(predictions['new_stock_recommendations'])} new stock recommendations from section")
+
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
-                                     sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
+                                     sentiment_data: Dict, financial_data: Optional[Dict] = None,
+                                     available_cash: float = 0.0) -> Dict:
         """Generate fallback predictions when Gemini fails"""
-        predictions = super()._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+        predictions = super()._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
         predictions['provider'] = 'gemini_fallback'
         return predictions

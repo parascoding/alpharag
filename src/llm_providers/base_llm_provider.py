@@ -29,8 +29,8 @@ class BaseLLMProvider(ABC):
         self.api_key = api_key
         self.logger = logging.getLogger(f"{__name__}.{name}")
 
-        # Common configuration
-        self.max_tokens = kwargs.get('max_tokens', 4000)
+        # Common configuration  
+        self.max_tokens = kwargs.get('max_tokens', 6000)
         self.temperature = kwargs.get('temperature', 0.7)
         self.timeout = kwargs.get('timeout', 30)
 
@@ -39,7 +39,8 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
-                           financial_data: Optional[Dict] = None) -> Dict:
+                           financial_data: Optional[Dict] = None,
+                           available_cash: float = 0.0) -> Dict:
         """
         Generate investment predictions and analysis
 
@@ -67,53 +68,52 @@ class BaseLLMProvider(ABC):
 
     def _build_analysis_prompt(self, rag_context: str, portfolio_data: Dict,
                               market_data: Dict, sentiment_data: Dict,
-                              financial_data: Optional[Dict] = None) -> str:
+                              financial_data: Optional[Dict] = None,
+                              available_cash: float = 0.0) -> str:
         """
         Build the analysis prompt (common across all providers)
         """
-        prompt = f"""You are an expert financial analyst specializing in Indian equity markets.
+        prompt = f"""Expert analysis for Indian equity portfolio.
 
-Analyze the following portfolio and market data to provide investment recommendations.
+PORTFOLIO: Investment ₹{portfolio_data['summary']['total_investment']:,.0f}, Current ₹{portfolio_data['summary']['total_current_value']:,.0f}, P&L {portfolio_data['summary']['total_pnl_percent']:.1f}%
 
-PORTFOLIO INFORMATION:
+HOLDINGS:
 {self._format_portfolio_data(portfolio_data)}
 
-MARKET DATA:
 {self._format_market_data(market_data)}
 
-{self._format_financial_data(financial_data) if financial_data else "FINANCIAL FUNDAMENTALS: Not available"}
-
-NEWS SENTIMENT ANALYSIS:
 {self._format_sentiment_data(sentiment_data)}
 
-RELEVANT CONTEXT (RAG Retrieved):
-{rag_context}
+Provide concise analysis:
 
-Please provide a comprehensive analysis with the following structure:
+1. NEW STOCK PURCHASE RECOMMENDATIONS:
+Available Cash: ₹{available_cash:.2f}
+Suggest 3-5 new stocks to buy with available liquid funds:
+- Stock Symbol: BSE/NSE symbol  
+- Recommended Amount: How much to invest (₹)
+- Current Price: Market price
+- Target Price: 30-day target
+- Sector: Stock sector/industry
+- Investment Thesis: Why to buy this stock (brief)
+- Risk Level: LOW/MEDIUM/HIGH
+- Confidence: 1-10 scale
 
-1. INDIVIDUAL STOCK RECOMMENDATIONS:
-For each stock in the portfolio, provide:
-- Current Status: Brief assessment of current position
+2. INDIVIDUAL STOCK RECOMMENDATIONS:
+For each stock in the portfolio, provide concise analysis:
 - Recommendation: BUY/SELL/HOLD with confidence level (1-10)
-- Target Price: Expected price in next 30 days
-- Key Factors: Main drivers for the recommendation
+- Current Status: Brief assessment  
+- Key Factors: Main drivers (brief)
 - Risk Level: LOW/MEDIUM/HIGH
 
-2. PORTFOLIO OVERVIEW:
+3. PORTFOLIO OVERVIEW:
 - Overall Performance Assessment
-- Portfolio Risk Analysis
-- Sector Diversification Comments
+- Portfolio Risk Analysis  
 - Overall Market Outlook
 
-3. ACTION ITEMS:
-- Immediate actions to take
-- Stocks to watch
+4. ACTION ITEMS:
+- Immediate actions for existing positions
+- New stock purchases with liquid funds
 - Risk management suggestions
-
-4. MARKET INSIGHTS:
-- Key market trends affecting the portfolio
-- Economic factors to monitor
-- Sector-specific insights
 
 Format your response as clear, structured text that can be easily parsed and included in an email report.
 Use bullet points and clear headings for readability."""
@@ -142,39 +142,31 @@ Use bullet points and clear headings for readability."""
         return "\n".join(lines)
 
     def _format_market_data(self, market_data: Dict) -> str:
-        """Format market data for the prompt"""
-        lines = [
-            f"Market Status: {market_data.get('market_status', 'Unknown')}",
-            f"Data Timestamp: {market_data.get('timestamp', 'Unknown')}",
-            "",
-            "Current Prices and Technical Analysis:"
-        ]
+        """Format market data for the prompt (condensed)"""
+        lines = ["Current Prices:"]
 
         prices = market_data.get('prices', {})
         for symbol, price in prices.items():
-            lines.append(f"- {symbol}: ₹{price:.2f}")
-
             tech_key = f"{symbol}_technical"
             if tech_key in market_data:
                 tech = market_data[tech_key]
-                lines.append(f"  Technical: SMA5={tech.get('sma_5', 'N/A')}, SMA20={tech.get('sma_20', 'N/A')}, RSI={tech.get('rsi', 'N/A')}")
+                rsi = tech.get('rsi', 0)
+                lines.append(f"- {symbol}: ₹{price:.2f} (RSI: {rsi:.0f})")
+            else:
+                lines.append(f"- {symbol}: ₹{price:.2f}")
 
         return "\n".join(lines)
 
     def _format_sentiment_data(self, sentiment_data: Dict) -> str:
-        """Format sentiment data for the prompt"""
+        """Format sentiment data for the prompt (condensed)"""
         lines = [
-            f"Overall Sentiment: {sentiment_data['overall_sentiment']['label']} (Score: {sentiment_data['overall_sentiment']['score']})",
-            f"Total Articles Analyzed: {sentiment_data['total_articles']}",
-            "",
-            "Individual Stock Sentiment:"
+            f"Market Sentiment: {sentiment_data['overall_sentiment']['label']} ({sentiment_data['total_articles']} articles)"
         ]
 
+        # Only include stocks with significant sentiment
         for symbol, data in sentiment_data['individual_sentiment'].items():
-            lines.append(
-                f"- {symbol}: {data['sentiment_label']} (Score: {data['sentiment_score']}, "
-                f"Articles: {data['article_count']})"
-            )
+            if abs(data['sentiment_score']) > 0.1:  # Only show notable sentiment
+                lines.append(f"- {symbol}: {data['sentiment_label']} ({data['sentiment_score']:.2f})")
 
         return "\n".join(lines)
 
@@ -232,18 +224,21 @@ Use bullet points and clear headings for readability."""
         return "\n".join(lines)
 
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
-                                     sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
+                                     sentiment_data: Dict, financial_data: Optional[Dict] = None,
+                                     available_cash: float = 0.0) -> Dict:
         """Generate rule-based predictions if API fails"""
         self.logger.error(f"{self.name} API FAILED - Using FALLBACK PREDICTIONS with rule-based analysis")
 
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': f'Analysis generated using fallback rules due to {self.name} API error.',
             'action_items': ['Monitor API connectivity', 'Review market conditions manually'],
             'market_insights': 'Manual analysis required - API unavailable',
             'timestamp': datetime.now().isoformat(),
             'fallback_mode': True,
-            'provider': self.name
+            'provider': self.name,
+            'available_cash': available_cash
         }
 
         # Enhanced rule-based recommendations using financial data
