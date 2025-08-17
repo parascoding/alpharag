@@ -101,7 +101,7 @@ class LLMFactory:
             # Add specific configurations for each provider
             if provider_name == 'gemini':
                 provider_kwargs.update({
-                    'model_name': 'gemini-2.5-flash',
+                    'model_name': 'gemini-2.0-flash',
                     'safety_settings': {
                         'HARASSMENT': 'BLOCK_NONE',
                         'HATE_SPEECH': 'BLOCK_NONE',
@@ -127,13 +127,14 @@ class LLMFactory:
 
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
-                           financial_data: Optional[Dict] = None) -> Dict:
+                           financial_data: Optional[Dict] = None,
+                           available_cash: float = 0.0) -> Dict:
         """
         Generate predictions using the fallback chain
         """
         if not self.providers:
             logger.error("❌ No LLM providers available - using rule-based fallback")
-            return self._generate_emergency_fallback(portfolio_data, market_data, sentiment_data, financial_data)
+            return self._generate_emergency_fallback(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
         # Try each provider in the chain
         for provider_name in self.provider_chain:
@@ -149,7 +150,7 @@ class LLMFactory:
 
                 # Generate predictions
                 predictions = provider.generate_predictions(
-                    rag_context, portfolio_data, market_data, sentiment_data, financial_data
+                    rag_context, portfolio_data, market_data, sentiment_data, financial_data, available_cash
                 )
 
                 # Check if we got valid predictions (not fallback)
@@ -167,15 +168,17 @@ class LLMFactory:
 
         # If all providers failed, use emergency fallback
         logger.error("❌ All LLM providers failed - using emergency rule-based fallback")
-        return self._generate_emergency_fallback(portfolio_data, market_data, sentiment_data, financial_data)
+        return self._generate_emergency_fallback(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
     def _generate_emergency_fallback(self, portfolio_data: Dict, market_data: Dict,
-                                   sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
+                                   sentiment_data: Dict, financial_data: Optional[Dict] = None,
+                                   available_cash: float = 0.0) -> Dict:
         """Emergency fallback when all LLM providers fail"""
         logger.error("🚨 EMERGENCY FALLBACK - All LLM providers failed")
 
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': 'Emergency analysis: All AI providers unavailable. Using rule-based recommendations.',
             'action_items': [
                 'Check API connectivity and quotas',
@@ -187,7 +190,8 @@ class LLMFactory:
             'timestamp': datetime.now().isoformat(),
             'emergency_fallback': True,
             'provider_used': 'emergency_rules',
-            'fallback_chain': self.provider_chain
+            'fallback_chain': self.provider_chain,
+            'available_cash': available_cash
         }
 
         # Enhanced rule-based recommendations

@@ -249,6 +249,58 @@ class SimpleRAGEngine:
 
         return "\n".join(context_parts)
 
+    def add_market_investment_context(self, available_cash: float) -> None:
+        """Add market-wide investment context for new stock recommendations"""
+        
+        # High-quality Indian stocks recommendations context
+        market_context = f"""
+        AVAILABLE CASH FOR NEW INVESTMENTS: ₹{available_cash:,.2f}
+        
+        TOP RECOMMENDED INDIAN STOCKS FOR NEW INVESTMENTS (Based on fundamentals and market position):
+        
+        BANKING SECTOR:
+        - HDFCBANK.NS: Leading private bank, strong asset quality, consistent growth
+        - ICICIBANK.NS: Second largest private bank, good digital presence
+        - KOTAKBANK.NS: Premium private bank, good risk management
+        
+        IT SERVICES:
+        - TCS.NS: Largest IT services company, stable client base, dividend yield
+        - INFY.NS: Strong global presence, good margins, consistent performer
+        - WIPRO.NS: Diversified IT services, reasonable valuation
+        
+        FMCG:
+        - HINDUNILVR.NS: Market leader in FMCG, strong brand portfolio
+        - NESTLEIND.NS: Premium FMCG company, consistent growth
+        - ITC.NS: Diversified FMCG, good dividend yield
+        
+        INFRASTRUCTURE/ENERGY:
+        - RELIANCE.NS: Diversified conglomerate, telecom and retail expansion
+        - NTPC.NS: Power generation leader, stable dividends
+        - POWERGRID.NS: Transmission utility, monopoly business
+        
+        PHARMACEUTICAL:
+        - SUNPHARMA.NS: Largest pharma company, global presence
+        - DRREDDY.NS: Strong US generics business
+        - CIPLA.NS: Respiratory and complex generics focus
+        
+        INVESTMENT ALLOCATION STRATEGY:
+        - Diversify across 3-5 sectors maximum
+        - Allocate ₹5,000-₹15,000 per stock depending on available cash
+        - Focus on large-cap stocks for stability
+        - Consider current market valuations and sector rotation
+        - Maintain some cash reserve (20-30%) for future opportunities
+        """
+        
+        self.add_document(
+            doc_id="market_investment_context",
+            content=market_context,
+            metadata={
+                'type': 'market_investment_context',
+                'available_cash': available_cash,
+                'category': 'investment_recommendations'
+            }
+        )
+
     def clear_documents(self) -> None:
         self.documents = []
         self.document_vectors = None

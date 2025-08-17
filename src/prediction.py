@@ -15,10 +15,11 @@ class ClaudePredictionEngine:
 
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
-                           financial_data: Optional[Dict] = None) -> Dict:
+                           financial_data: Optional[Dict] = None,
+                           available_cash: float = 0.0) -> Dict:
         try:
             # Prepare the analysis prompt
-            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data)
+            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Call Claude API
             response = self.client.messages.create(
@@ -39,11 +40,12 @@ class ClaudePredictionEngine:
 
         except Exception as e:
             logger.error(f"Error generating predictions with Claude: {e}")
-            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
     def _build_analysis_prompt(self, rag_context: str, portfolio_data: Dict,
                               market_data: Dict, sentiment_data: Dict,
-                              financial_data: Optional[Dict] = None) -> str:
+                              financial_data: Optional[Dict] = None,
+                              available_cash: float = 0.0) -> str:
         prompt = f"""You are an expert financial analyst specializing in Indian equity markets.
 
 Analyze the following portfolio and market data to provide investment recommendations.
@@ -72,18 +74,30 @@ For each stock in the portfolio, provide:
 - Key Factors: Main drivers for the recommendation
 - Risk Level: LOW/MEDIUM/HIGH
 
-2. PORTFOLIO OVERVIEW:
+2. NEW STOCK PURCHASE RECOMMENDATIONS:
+Available Cash: ₹{available_cash:.2f}
+Suggest 3-5 new stocks to buy with available liquid funds:
+- Stock Symbol: BSE/NSE symbol
+- Recommended Amount: How much to invest (₹)
+- Current Price: Market price
+- Target Price: 30-day target
+- Sector: Stock sector/industry
+- Investment Thesis: Why to buy this stock
+- Risk Level: LOW/MEDIUM/HIGH
+- Confidence: 1-10 scale
+
+3. PORTFOLIO OVERVIEW:
 - Overall Performance Assessment
 - Portfolio Risk Analysis
 - Sector Diversification Comments
 - Overall Market Outlook
 
-3. ACTION ITEMS:
-- Immediate actions to take
-- Stocks to watch
+4. ACTION ITEMS:
+- Immediate actions to take (SELL/HOLD existing positions)
+- New stocks to buy with liquid funds
 - Risk management suggestions
 
-4. MARKET INSIGHTS:
+5. MARKET INSIGHTS:
 - Key market trends affecting the portfolio
 - Economic factors to monitor
 - Sector-specific insights
@@ -205,6 +219,7 @@ Use bullet points and clear headings for readability."""
         # Parse Claude's structured response
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': '',
             'action_items': [],
             'market_insights': '',
@@ -223,8 +238,10 @@ Use bullet points and clear headings for readability."""
             for section in sections:
                 section_lower = section.lower()
 
-                if 'individual stock' in section_lower or 'recommendations' in section_lower:
+                if 'individual stock' in section_lower or ('recommendations' in section_lower and 'new stock' not in section_lower):
                     current_section = 'recommendations'
+                elif 'new stock' in section_lower and 'recommendations' in section_lower:
+                    current_section = 'new_recommendations'
                 elif 'portfolio overview' in section_lower:
                     current_section = 'portfolio'
                     predictions['portfolio_analysis'] = section
@@ -265,6 +282,10 @@ Use bullet points and clear headings for readability."""
                                         'reasoning': line.strip()
                                     }
 
+                # Parse new stock recommendations section
+                if current_section == 'new_recommendations':
+                    self._parse_new_stock_recommendations(section, predictions)
+
                 # Parse action items
                 if current_section == 'actions':
                     for line in section.split('\n'):
@@ -297,16 +318,19 @@ Use bullet points and clear headings for readability."""
         return 5  # Default confidence
 
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
-                                     sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
+                                     sentiment_data: Dict, financial_data: Optional[Dict] = None,
+                                     available_cash: float = 0.0) -> Dict:
         """Generate simple rule-based predictions if Claude API fails"""
         logger.error("Claude API FAILED - Using FALLBACK PREDICTIONS with rule-based analysis")
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': 'Analysis generated using fallback rules due to API error.',
             'action_items': ['Monitor API connectivity', 'Review market conditions manually'],
             'market_insights': 'Manual analysis required - API unavailable',
             'timestamp': datetime.now().isoformat(),
-            'fallback_mode': True
+            'fallback_mode': True,
+            'available_cash': available_cash
         }
 
         # Enhanced rule-based recommendations using financial data
@@ -371,4 +395,116 @@ Use bullet points and clear headings for readability."""
                 'reasoning': reasoning
             }
 
+        # Generate new stock recommendations if cash is available
+        if available_cash > 1000:  # Only if we have meaningful cash (₹1000+)
+            self._add_fallback_new_stock_recommendations(predictions, available_cash, financial_data)
+
         return predictions
+
+    def _add_fallback_new_stock_recommendations(self, predictions: Dict, available_cash: float, 
+                                               financial_data: Optional[Dict] = None):
+        """Add simple rule-based new stock recommendations"""
+        # Conservative allocation - diversify across multiple stocks
+        max_per_stock = min(available_cash * 0.25, 15000)  # Max 25% or ₹15K per stock
+        
+        # Sample high-quality Indian stocks for conservative recommendations
+        recommended_stocks = [
+            {
+                'symbol': 'HDFCBANK.NS',
+                'sector': 'Banking',
+                'rationale': 'Leading private bank with strong fundamentals',
+                'suggested_amount': min(max_per_stock, 12000),
+                'confidence': 7
+            },
+            {
+                'symbol': 'RELIANCE.NS', 
+                'sector': 'Oil & Gas',
+                'rationale': 'Diversified conglomerate with stable business',
+                'suggested_amount': min(max_per_stock, 10000),
+                'confidence': 6
+            },
+            {
+                'symbol': 'INFY.NS',
+                'sector': 'IT Services', 
+                'rationale': 'Strong IT services company with global presence',
+                'suggested_amount': min(max_per_stock, 8000),
+                'confidence': 6
+            }
+        ]
+        
+        total_suggested = 0
+        for stock in recommended_stocks:
+            if total_suggested + stock['suggested_amount'] <= available_cash:
+                predictions['new_stock_recommendations'][stock['symbol']] = {
+                    'sector': stock['sector'],
+                    'suggested_amount': stock['suggested_amount'],
+                    'investment_rationale': stock['rationale'],
+                    'confidence': stock['confidence'],
+                    'risk_level': 'MEDIUM'
+                }
+                total_suggested += stock['suggested_amount']
+
+    def _parse_new_stock_recommendations(self, section: str, predictions: Dict):
+        """Parse new stock recommendations from Claude's response"""
+        import re
+        
+        # Look for patterns like:
+        # - Stock Symbol: HDFCBANK.NS
+        # - Recommended Amount: ₹15,000
+        # - Sector: Banking
+        
+        lines = section.split('\n')
+        current_stock = {}
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Stock Symbol pattern
+            symbol_match = re.search(r'(?:Stock Symbol|Symbol):\s*([A-Z]+\.NS)', line, re.IGNORECASE)
+            if symbol_match:
+                if current_stock and 'symbol' in current_stock:
+                    # Save previous stock
+                    self._save_parsed_new_stock(current_stock, predictions)
+                current_stock = {'symbol': symbol_match.group(1)}
+                continue
+            
+            # Recommended Amount pattern
+            amount_match = re.search(r'(?:Recommended Amount|Amount):\s*₹?([0-9,]+)', line, re.IGNORECASE)
+            if amount_match and current_stock:
+                amount_str = amount_match.group(1).replace(',', '')
+                current_stock['suggested_amount'] = float(amount_str)
+                continue
+                
+            # Sector pattern
+            sector_match = re.search(r'Sector:\s*([^-\n]+)', line, re.IGNORECASE)
+            if sector_match and current_stock:
+                current_stock['sector'] = sector_match.group(1).strip()
+                continue
+                
+            # Investment Thesis pattern
+            thesis_match = re.search(r'(?:Investment Thesis|Rationale):\s*([^-\n]+)', line, re.IGNORECASE)
+            if thesis_match and current_stock:
+                current_stock['investment_rationale'] = thesis_match.group(1).strip()
+                continue
+                
+            # Confidence pattern
+            conf_match = re.search(r'Confidence:\s*(\d+)', line, re.IGNORECASE)
+            if conf_match and current_stock:
+                current_stock['confidence'] = int(conf_match.group(1))
+                continue
+        
+        # Save the last stock
+        if current_stock and 'symbol' in current_stock:
+            self._save_parsed_new_stock(current_stock, predictions)
+    
+    def _save_parsed_new_stock(self, stock_data: Dict, predictions: Dict):
+        """Save parsed new stock recommendation"""
+        symbol = stock_data.get('symbol')
+        if symbol:
+            predictions['new_stock_recommendations'][symbol] = {
+                'sector': stock_data.get('sector', 'Unknown'),
+                'suggested_amount': stock_data.get('suggested_amount', 0),
+                'investment_rationale': stock_data.get('investment_rationale', 'No rationale provided'),
+                'confidence': stock_data.get('confidence', 5),
+                'risk_level': 'MEDIUM'  # Default
+            }

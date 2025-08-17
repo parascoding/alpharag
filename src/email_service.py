@@ -22,7 +22,7 @@ class EmailService:
             if isinstance(to_emails, str):
                 to_emails = [to_emails]
 
-            subject = f"AlphaRAG Portfolio Analysis - {datetime.now().strftime('%Y-%m-%d')}"
+            subject = f"AlphaRAG Portfolio Analysis - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
             # Create email content
             email_body = self._create_analysis_email(portfolio_data, market_data,
@@ -323,6 +323,64 @@ class EmailService:
             lines.extend([
                 "❌ No individual stock recommendations available",
                 "   Please check system logs for details",
+                ""
+            ])
+
+        # New stock purchase recommendations
+        new_recommendations = predictions.get('new_stock_recommendations', {})
+        available_cash = predictions.get('available_cash', 0)
+        
+        if new_recommendations and available_cash > 0:
+            lines.extend(["💰 New Stock Purchase Recommendations:", ""])
+            lines.append(f"Available Cash: ₹{available_cash:,.2f}")
+            lines.append("")
+            
+            total_suggested = 0
+            for symbol, rec in new_recommendations.items():
+                # Only include valid new stock recommendations (must have recommended_amount or current_price)
+                if not rec.get('recommended_amount') and not rec.get('current_price'):
+                    continue
+                    
+                # Handle both field name variations
+                suggested_amount = float(rec.get('recommended_amount', rec.get('suggested_amount', 0)))
+                if suggested_amount == 0:
+                    continue  # Skip entries without investment amount
+                    
+                current_price = rec.get('current_price', 'N/A')
+                target_price = rec.get('target_price', 'N/A')
+                sector = rec.get('sector', 'Unknown')
+                confidence = rec.get('confidence', 5)
+                rationale = rec.get('investment_thesis', rec.get('investment_rationale', 'No rationale provided'))
+                risk_level = rec.get('risk_level', 'MEDIUM')
+                
+                confidence_stars = '⭐' * min(confidence, 5)
+                
+                lines.extend([
+                    f"🔥 {symbol} ({sector})",
+                    f"   💰 Suggested Investment: ₹{suggested_amount:,.0f}",
+                    f"   💹 Current Price: ₹{current_price}  |  🎯 Target: ₹{target_price}",
+                    f"   📊 Risk Level: {risk_level}  |  ⭐ Confidence: {confidence_stars} ({confidence}/10)",
+                    f"   📝 Investment Thesis: {rationale}",
+                    ""
+                ])
+                
+                total_suggested += suggested_amount
+            
+            remaining_cash = available_cash - total_suggested
+            lines.extend([
+                f"💡 Total Suggested Investment: ₹{total_suggested:,.2f}",
+                f"💵 Remaining Cash: ₹{remaining_cash:,.2f}",
+                "",
+                "Note: These are AI-generated suggestions. Please conduct your own research before investing.",
+                ""
+            ])
+            
+        elif available_cash > 1000:
+            lines.extend([
+                "💰 Available Cash for Investment:",
+                f"   Cash Available: ₹{available_cash:,.2f}",
+                "   ⚠️ No new stock recommendations generated",
+                "   Consider manual research for new investment opportunities",
                 ""
             ])
 

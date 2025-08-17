@@ -16,6 +16,8 @@ class PortfolioManager:
         self.portfolio_df = None
         self.dynamic_parser = DynamicPortfolioParser(portfolio_file)
         self.detected_format = None
+        # Define liquid fund patterns
+        self.liquid_fund_patterns = ['LIQUIDBEES', 'LIQUIDCASE', 'LIQUID', 'CASH', 'MONEY', 'TREASURY']
         self.load_portfolio()
 
     def load_portfolio(self) -> pd.DataFrame:
@@ -118,3 +120,53 @@ class PortfolioManager:
                 'total_pnl_percent': float(total_pnl_percent)
             }
         }
+
+    def identify_liquid_funds(self, current_prices: Dict[str, float] = None) -> Dict:
+        """
+        Identify liquid funds in portfolio and calculate available cash for new investments
+        """
+        liquid_holdings = []
+        total_liquid_value = 0
+        
+        for _, row in self.portfolio_df.iterrows():
+            symbol = row['symbol']
+            # Check if symbol matches any liquid fund pattern
+            is_liquid = any(pattern in symbol.upper() for pattern in self.liquid_fund_patterns)
+            
+            if is_liquid:
+                quantity = row['quantity']
+                buy_price = row['buy_price']
+                current_price = current_prices.get(symbol, buy_price) if current_prices else buy_price
+                current_value = quantity * current_price
+                
+                liquid_holdings.append({
+                    'symbol': symbol,
+                    'quantity': int(quantity),
+                    'buy_price': float(buy_price),
+                    'current_price': float(current_price),
+                    'current_value': float(current_value)
+                })
+                
+                total_liquid_value += current_value
+        
+        return {
+            'liquid_holdings': liquid_holdings,
+            'total_available_cash': float(total_liquid_value),
+            'count': len(liquid_holdings)
+        }
+
+    def get_equity_holdings(self) -> List[str]:
+        """
+        Get list of equity holdings (excluding liquid funds)
+        """
+        equity_symbols = []
+        
+        for _, row in self.portfolio_df.iterrows():
+            symbol = row['symbol']
+            # Exclude liquid fund patterns
+            is_liquid = any(pattern in symbol.upper() for pattern in self.liquid_fund_patterns)
+            
+            if not is_liquid:
+                equity_symbols.append(symbol)
+        
+        return equity_symbols

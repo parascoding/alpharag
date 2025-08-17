@@ -160,12 +160,20 @@ class AlphaRAGOrchestrator:
         current_prices = self.data_ingestion.get_current_prices(symbols)
         market_summary = self.data_ingestion.get_market_summary(symbols)
         portfolio_value = self.portfolio_manager.calculate_portfolio_value(current_prices)
+        
+        # Identify liquid funds and available cash
+        liquid_funds = self.portfolio_manager.identify_liquid_funds(current_prices)
+        available_cash = liquid_funds['total_available_cash']
+        
         logger.info(f"Market data fetched for {len(current_prices)} symbols")
+        logger.info(f"💰 Available cash identified: ₹{available_cash:,.2f} from {liquid_funds['count']} liquid holdings")
         
         return {
             'current_prices': current_prices,
             'market_summary': market_summary,
-            'portfolio_value': portfolio_value
+            'portfolio_value': portfolio_value,
+            'liquid_funds': liquid_funds,
+            'available_cash': available_cash
         }
 
     def _analyze_sentiment(self, symbols: list) -> Dict[str, Any]:
@@ -192,6 +200,11 @@ class AlphaRAGOrchestrator:
             if symbol in sentiment_data['individual_sentiment']:
                 self.rag_engine.add_news_sentiment(symbol, sentiment_data['individual_sentiment'][symbol])
 
+        # Add market investment context for new stock recommendations
+        available_cash = market_data.get('available_cash', 0)
+        if available_cash > 0:
+            self.rag_engine.add_market_investment_context(available_cash)
+
         # Build the search index
         self.rag_engine.build_index()
         rag_context = self.rag_engine.get_all_context()
@@ -202,8 +215,9 @@ class AlphaRAGOrchestrator:
     def _generate_predictions(self, rag_context: Dict, market_data: Dict, sentiment_data: Dict) -> Dict[str, Any]:
         """Generate AI predictions"""
         logger.info("🤖 Generating AI predictions...")
+        available_cash = market_data.get('available_cash', 0)
         predictions = self.llm_factory.generate_predictions(
-            rag_context, market_data['portfolio_value'], market_data['market_summary'], sentiment_data, {}
+            rag_context, market_data['portfolio_value'], market_data['market_summary'], sentiment_data, {}, available_cash
         )
 
         provider_used = predictions.get('provider_used', 'unknown')

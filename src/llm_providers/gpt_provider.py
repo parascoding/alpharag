@@ -70,15 +70,16 @@ class GPTProvider(BaseLLMProvider):
 
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
-                           financial_data: Optional[Dict] = None) -> Dict:
+                           financial_data: Optional[Dict] = None,
+                           available_cash: float = 0.0) -> Dict:
         """Generate predictions using GPT"""
         try:
             if not self.client:
                 self.logger.error("GPT client not initialized")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Build the analysis prompt
-            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data)
+            prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             self.logger.info("🤖 Generating predictions with GPT...")
 
@@ -102,7 +103,7 @@ class GPTProvider(BaseLLMProvider):
 
             if not response or not response.choices or not response.choices[0].message.content:
                 self.logger.error("GPT returned empty response")
-                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+                return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
             # Parse GPT's response
             analysis_text = response.choices[0].message.content
@@ -120,12 +121,13 @@ class GPTProvider(BaseLLMProvider):
 
         except Exception as e:
             self.logger.error(f"❌ Error generating predictions with GPT: {e}")
-            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+            return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
     def _parse_predictions(self, analysis_text: str) -> Dict:
         """Parse GPT's structured response"""
         predictions = {
             'individual_recommendations': {},
+            'new_stock_recommendations': {},
             'portfolio_analysis': '',
             'action_items': [],
             'market_insights': '',
@@ -258,8 +260,9 @@ class GPTProvider(BaseLLMProvider):
         return 5  # Default confidence
 
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
-                                     sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
+                                     sentiment_data: Dict, financial_data: Optional[Dict] = None,
+                                     available_cash: float = 0.0) -> Dict:
         """Generate fallback predictions when GPT fails"""
-        predictions = super()._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
+        predictions = super()._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
         predictions['provider'] = 'gpt_fallback'
         return predictions
