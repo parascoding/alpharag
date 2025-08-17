@@ -145,6 +145,8 @@ class GeminiProvider(BaseLLMProvider):
 
     def _parse_predictions(self, analysis_text: str) -> Dict:
         """Parse Gemini's structured response"""
+        import re
+        
         predictions = {
             'individual_recommendations': {},
             'portfolio_analysis': '',
@@ -155,74 +157,137 @@ class GeminiProvider(BaseLLMProvider):
         }
 
         try:
-            # Split analysis into sections
-            sections = analysis_text.split('\n\n')
-            current_section = ''
+            # Extract overall portfolio analysis (first paragraph)
+            lines = analysis_text.split('\n')
+            portfolio_lines = []
+            for line in lines[:10]:  # First 10 lines usually contain portfolio overview
+                if line.strip() and not line.strip().startswith('*') and not line.strip().startswith('#'):
+                    portfolio_lines.append(line.strip())
+            predictions['portfolio_analysis'] = ' '.join(portfolio_lines)
 
-            for section in sections:
-                section_lower = section.lower()
+            # Use regex to find individual stock analysis blocks
+            # Pattern: **SYMBOL.NS (Sector)** followed by analysis block
+            stock_patterns = [
+                r'\*\s+\*\*([A-Z0-9]+\.NS)\s+\([^)]+\)\*\*\s*\n(.*?)(?=\*\s+\*\*[A-Z0-9]+\.NS|\Z)',  # **SYMBOL.NS (Sector)**
+                r'\*\s+\*\*([A-Z0-9]+\.NS)\*\*\s*\n(.*?)(?=\*\s+\*\*[A-Z0-9]+\.NS|\Z)',               # **SYMBOL.NS**
+                r'([A-Z0-9]+\.NS)\s+\([^)]+\)(.*?)(?=[A-Z0-9]+\.NS\s+\(|\Z)',                         # SYMBOL.NS (Sector)
+            ]
+            
+            for pattern in stock_patterns:
+                matches = re.findall(pattern, analysis_text, re.DOTALL)
+                
+                for symbol, analysis_block in matches:
+                    # Extract recommendation from analysis block
+                    recommendation = self._extract_recommendation(analysis_block)
+                    confidence = self._extract_confidence(analysis_block)
+                    
+                    # Extract reasoning
+                    reasoning = self._extract_reasoning(analysis_block)
+                    
+                    if recommendation:
+                        predictions['individual_recommendations'][symbol] = {
+                            'recommendation': recommendation,
+                            'confidence': confidence,
+                            'reasoning': reasoning
+                        }
+                        self.logger.info(f"Parsed {symbol}: {recommendation} (confidence: {confidence})")
+                
+                if predictions['individual_recommendations']:
+                    break  # Stop if we found matches with this pattern
 
-                # Identify sections
-                if any(keyword in section_lower for keyword in ['individual stock', 'recommendations', '1.']):
-                    current_section = 'recommendations'
-                elif any(keyword in section_lower for keyword in ['portfolio overview', '2.']):
-                    current_section = 'portfolio'
-                    predictions['portfolio_analysis'] = section
-                elif any(keyword in section_lower for keyword in ['action items', '3.']):
-                    current_section = 'actions'
-                elif any(keyword in section_lower for keyword in ['market insights', '4.']):
-                    current_section = 'insights'
-                    predictions['market_insights'] = section
-
-                # Parse recommendations section
-                if current_section == 'recommendations':
-                    # Look for stock symbols and extract recommendations
-                    lines = section.split('\n')
-                    current_symbol = None
-
-                    for line in lines:
-                        line = line.strip()
-                        if not line:
-                            continue
-
-                        # Check if line contains a stock symbol
-                        symbol = self._extract_symbol(line)
-                        if symbol:
-                            current_symbol = symbol
-
-                        # Extract recommendation details
-                        if current_symbol and any(rec in line.upper() for rec in ['BUY', 'SELL', 'HOLD']):
-                            recommendation = self._extract_recommendation(line)
-                            confidence = self._extract_confidence(line)
-
+            # If no stocks found with the above patterns, try line-by-line parsing
+            if not predictions['individual_recommendations']:
+                self.logger.warning("No stocks found with primary patterns, trying line-by-line parsing...")
+                
+                current_symbol = None
+                current_analysis = []
+                
+                lines = analysis_text.split('\n')
+                for i, line in enumerate(lines):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Check if this line contains a stock symbol
+                    symbol = self._extract_symbol(line)
+                    if symbol:
+                        # Process previous symbol if we have one
+                        if current_symbol and current_analysis:
+                            analysis_text_block = '\n'.join(current_analysis)
+                            recommendation = self._extract_recommendation(analysis_text_block)
                             if recommendation:
+                                confidence = self._extract_confidence(analysis_text_block)
+                                reasoning = self._extract_reasoning(analysis_text_block)
                                 predictions['individual_recommendations'][current_symbol] = {
                                     'recommendation': recommendation,
                                     'confidence': confidence,
-                                    'reasoning': line
+                                    'reasoning': reasoning
                                 }
+                                self.logger.info(f"Line-parsed {current_symbol}: {recommendation} (confidence: {confidence})")
+                        
+                        # Start new symbol
+                        current_symbol = symbol
+                        current_analysis = [line]
+                    elif current_symbol:
+                        # Add to current analysis
+                        current_analysis.append(line)
+                        
+                        # Check if we have enough lines for this symbol (max 10 lines per stock)
+                        if len(current_analysis) > 10:
+                            analysis_text_block = '\n'.join(current_analysis)
+                            recommendation = self._extract_recommendation(analysis_text_block)
+                            if recommendation:
+                                confidence = self._extract_confidence(analysis_text_block)
+                                reasoning = self._extract_reasoning(analysis_text_block)
+                                predictions['individual_recommendations'][current_symbol] = {
+                                    'recommendation': recommendation,
+                                    'confidence': confidence,
+                                    'reasoning': reasoning
+                                }
+                                self.logger.info(f"Line-parsed {current_symbol}: {recommendation} (confidence: {confidence})")
+                            current_symbol = None
+                            current_analysis = []
+                
+                # Process the last symbol
+                if current_symbol and current_analysis:
+                    analysis_text_block = '\n'.join(current_analysis)
+                    recommendation = self._extract_recommendation(analysis_text_block)
+                    if recommendation:
+                        confidence = self._extract_confidence(analysis_text_block)
+                        reasoning = self._extract_reasoning(analysis_text_block)
+                        predictions['individual_recommendations'][current_symbol] = {
+                            'recommendation': recommendation,
+                            'confidence': confidence,
+                            'reasoning': reasoning
+                        }
+                        self.logger.info(f"Line-parsed {current_symbol}: {recommendation} (confidence: {confidence})")
 
-                # Parse action items
-                if current_section == 'actions':
-                    for line in section.split('\n'):
-                        line = line.strip()
-                        if line and (line.startswith('-') or line.startswith('•') or line.startswith('*')):
-                            predictions['action_items'].append(line[1:].strip())
+            self.logger.info(f"Successfully parsed {len(predictions['individual_recommendations'])} stock recommendations")
 
         except Exception as e:
-            self.logger.warning(f"Error parsing Gemini predictions: {e}")
+            self.logger.error(f"Error parsing Gemini predictions: {e}")
             predictions['parsing_error'] = str(e)
 
         return predictions
 
     def _extract_symbol(self, text: str) -> Optional[str]:
         """Extract stock symbol from text"""
-        symbols = ['RELIANCE.NS', 'TCS.NS', 'INFY.NS']
+        # Common Indian stock symbols pattern
+        import re
         text_upper = text.upper()
-
-        for symbol in symbols:
-            if symbol in text_upper or symbol.replace('.NS', '') in text_upper:
-                return symbol
+        
+        # Look for patterns like "SYMBOL.NS" or "**SYMBOL.NS**" 
+        symbol_patterns = [
+            r'\*\*([A-Z0-9]+\.NS)\*\*',  # **SYMBOL.NS**
+            r'([A-Z0-9]+\.NS)',          # SYMBOL.NS
+            r'\*\s+\*\*([A-Z0-9]+\.NS)', # * **SYMBOL.NS
+        ]
+        
+        for pattern in symbol_patterns:
+            matches = re.findall(pattern, text_upper)
+            if matches:
+                return matches[0]
+        
         return None
 
     def _extract_recommendation(self, text: str) -> Optional[str]:
@@ -238,6 +303,7 @@ class GeminiProvider(BaseLLMProvider):
 
     def _extract_confidence(self, text: str) -> int:
         """Extract confidence score from text"""
+        import re
         # Look for patterns like "confidence: 8", "8/10", "(8)"
         patterns = [
             r'confidence[:\s]+(\d+)',
@@ -254,6 +320,36 @@ class GeminiProvider(BaseLLMProvider):
                     return conf
 
         return 5  # Default confidence
+
+    def _extract_reasoning(self, analysis_block: str) -> str:
+        """Extract reasoning from analysis block"""
+        lines = analysis_block.split('\n')
+        
+        # Look for key factors or reasoning lines
+        reasoning_lines = []
+        for line in lines:
+            line = line.strip()
+            if any(keyword in line.lower() for keyword in ['key factors:', 'factors:', 'reason:', 'because']):
+                # Get the content after the colon
+                if ':' in line:
+                    reasoning_lines.append(line.split(':', 1)[1].strip())
+                else:
+                    reasoning_lines.append(line)
+            elif line.startswith('*') and any(keyword in line.lower() for keyword in ['current status:', 'recommendation:']):
+                reasoning_lines.append(line.replace('*', '').strip())
+        
+        # If no specific reasoning found, use first meaningful line
+        if not reasoning_lines:
+            for line in lines[:3]:
+                line = line.strip()
+                if line and not line.startswith('*') and len(line) > 20:
+                    reasoning_lines.append(line)
+                    break
+        
+        # Combine reasoning without truncation
+        reasoning = ' '.join(reasoning_lines)
+        
+        return reasoning or "Analysis available in detailed report"
 
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
                                      sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
