@@ -187,6 +187,22 @@ class EmailService:
                 f"(Score: {data['sentiment_score']:+.3f}, Articles: {data['article_count']})"
             )
 
+            # Add news article links if available
+            articles = data.get('articles', [])
+            if articles:
+                lines.append("     📰 Related News:")
+                for i, article in enumerate(articles[:3], 1):  # Show top 3 articles
+                    title = article.get('title', 'Untitled')
+                    # Check for both 'url' and 'link' fields (different providers use different fields)
+                    article_url = article.get('url') or article.get('link')
+                    
+                    if article_url:
+                        lines.append(f"       {i}. {title}")
+                        lines.append(f"          🔗 {article_url}")
+                    else:
+                        lines.append(f"       {i}. {title} (No link available)")
+                lines.append("")  # Empty line after articles
+
         return "\n".join(lines)
 
     def _format_financial_scorecard(self, financial_data: Optional[Dict]) -> str:
@@ -256,18 +272,28 @@ class EmailService:
     def _format_predictions(self, predictions: Dict) -> str:
         lines = []
 
-        if predictions.get('fallback_mode'):
+        # Emergency fallback notification
+        if predictions.get('emergency_fallback'):
+            lines.extend([
+                "⚠️  Note: Using emergency rule-based analysis due to AI service unavailability",
+                ""
+            ])
+        elif predictions.get('fallback_mode'):
             lines.extend([
                 "⚠️  Note: Using simplified analysis due to API limitations",
                 ""
             ])
 
         # Individual recommendations
+        logger.info(predictions)
         recommendations = predictions.get('individual_recommendations', {})
         if recommendations:
-            lines.extend(["Stock Recommendations:", ""])
+            lines.extend(["📈 Individual Stock Recommendations:", ""])
 
-            for symbol, rec in recommendations.items():
+            # Sort by recommendation for better readability
+            sorted_recs = sorted(recommendations.items(), key=lambda x: {'BUY': 0, 'HOLD': 1, 'SELL': 2}.get(x[1]['recommendation'], 3))
+
+            for symbol, rec in sorted_recs:
                 rec_emoji = {
                     'BUY': '🟢',
                     'SELL': '🔴',
@@ -282,14 +308,28 @@ class EmailService:
                 )
 
                 if 'reasoning' in rec and rec['reasoning']:
-                    lines.append(f"   Reason: {rec['reasoning']}")
+                    # Include full reasoning without truncation
+                    reasoning = rec['reasoning']
+                    lines.append(f"   📝 {reasoning}")
 
                 lines.append("")
+
+            lines.extend([
+                f"📊 Total Recommendations: {len(recommendations)} stocks analyzed",
+                ""
+            ])
+
+        else:
+            lines.extend([
+                "❌ No individual stock recommendations available",
+                "   Please check system logs for details",
+                ""
+            ])
 
         # Portfolio analysis
         if predictions.get('portfolio_analysis'):
             lines.extend([
-                "Portfolio Analysis:",
+                "🎯 Portfolio Overview:",
                 predictions['portfolio_analysis'],
                 ""
             ])
@@ -298,40 +338,56 @@ class EmailService:
         action_items = predictions.get('action_items', [])
         if action_items:
             lines.extend(["📋 Recommended Actions:", ""])
-            for item in action_items:
-                lines.append(f"  • {item}")
+            for i, item in enumerate(action_items, 1):
+                lines.append(f"  {i}. {item}")
             lines.append("")
 
         # Market insights
         if predictions.get('market_insights'):
             lines.extend([
                 "🔍 Market Insights:",
-                predictions['market_insights']
+                predictions['market_insights'],
+                ""
+            ])
+
+        # Add generation metadata for debugging
+        if predictions.get('provider_used'):
+            lines.extend([
+                f"🤖 Analysis Provider: {predictions['provider_used'].upper()}",
+                f"⏰ Generated: {predictions.get('timestamp', 'Unknown')}",
+                ""
             ])
 
         return "\n".join(lines)
 
     def _send_email(self, to_email: str, subject: str, body: str) -> bool:
         try:
+            # Log email size for debugging
+            body_size = len(body.encode('utf-8'))
+            logger.info(f"📧 Email size: {body_size:,} bytes ({body_size/1024:.1f} KB)")
+
             # Create message
             msg = MIMEMultipart()
             msg['From'] = self.username
             msg['To'] = to_email
             msg['Subject'] = subject
 
-            # Add body to email
+            # Add body to email with explicit encoding
             msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-            # Create SMTP session
+            # Create SMTP session with debugging
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
             server.starttls()  # Enable TLS encryption
             server.login(self.username, self.password)
 
             # Send email
             text = msg.as_string()
+            logger.info(f"📧 Total message size: {len(text):,} bytes")
+            
             server.sendmail(self.username, to_email, text)
             server.quit()
 
+            logger.info(f"📧 Email sent successfully to {to_email}")
             return True
 
         except Exception as e:
