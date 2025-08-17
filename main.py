@@ -110,25 +110,26 @@ class AlphaRAGOrchestrator:
             )
             logger.info("✅ Email service initialized")
 
+            # TODO: Financial indicators temporarily disabled - will be re-enabled later
             # Initialize financial indicators with Upstox support
-            upstox_provider = None
-            if hasattr(self.data_ingestion, 'provider') and self.data_ingestion.provider.name == 'upstox':
-                upstox_provider = self.data_ingestion.provider
-                logger.info("🔗 Passing Upstox provider to financial indicators")
+            # upstox_provider = None
+            # if hasattr(self.data_ingestion, 'provider') and self.data_ingestion.provider.name == 'upstox':
+            #     upstox_provider = self.data_ingestion.provider
+            #     logger.info("🔗 Passing Upstox provider to financial indicators")
 
-            self.financial_indicators = FinancialIndicatorsFetcher(
-                settings.ALPHA_VANTAGE_API_KEY,
-                settings.USE_REAL_FINANCIAL_APIS,
-                upstox_provider=upstox_provider
-            )
+            # self.financial_indicators = FinancialIndicatorsFetcher(
+            #     settings.ALPHA_VANTAGE_API_KEY,
+            #     settings.USE_REAL_FINANCIAL_APIS,
+            #     upstox_provider=upstox_provider
+            # )
 
-            if upstox_provider and settings.USE_REAL_FINANCIAL_APIS:
-                mode = "Upstox-calculated ratios"
-            elif settings.USE_REAL_FINANCIAL_APIS:
-                mode = "Alpha Vantage APIs (legacy)"
-            else:
-                mode = "mock data"
-            logger.info(f"✅ Financial indicators initialized ({mode})")
+            # if upstox_provider and settings.USE_REAL_FINANCIAL_APIS:
+            #     mode = "Upstox-calculated ratios"
+            # elif settings.USE_REAL_FINANCIAL_APIS:
+            #     mode = "Alpha Vantage APIs (legacy)"
+            # else:
+            #     mode = "mock data"
+            # logger.info(f"✅ Financial indicators initialized ({mode})")
 
             logger.info("🚀 All components initialized successfully!")
 
@@ -154,18 +155,19 @@ class AlphaRAGOrchestrator:
             portfolio_value = self.portfolio_manager.calculate_portfolio_value(current_prices)
             logger.info(f"Market data fetched for {len(current_prices)} symbols")
 
-            # Step 3: Fetch financial indicators
-            logger.info("💰 Fetching financial indicators...")
-            financial_indicators = self.financial_indicators.get_financial_indicators(symbols)
+            # Step 3: Fetch financial indicators (TEMPORARILY DISABLED)
+            # logger.info("💰 Fetching financial indicators...")
+            # financial_indicators = self.financial_indicators.get_financial_indicators(symbols)
 
             # Calculate financial health scores
-            financial_data = {}
-            for symbol, data in financial_indicators.items():
-                health_score = self.financial_indicators.calculate_financial_health_score(data)
-                data['health_score'] = health_score
-                financial_data[symbol] = data
+            financial_data = {}  # Empty dict for now
+            # for symbol, data in financial_indicators.items():
+            #     health_score = self.financial_indicators.calculate_financial_health_score(data)
+            #     data['health_score'] = health_score
+            #     financial_data[symbol] = data
 
-            logger.info(f"Financial indicators fetched for {len(financial_data)} symbols")
+            # logger.info(f"Financial indicators fetched for {len(financial_data)} symbols")
+            logger.info("💰 Financial indicators temporarily disabled")
 
             # Step 4: Analyze news sentiment
             logger.info("📰 Analyzing news sentiment...")
@@ -183,14 +185,14 @@ class AlphaRAGOrchestrator:
             for symbol in symbols:
                 self.rag_engine.add_market_data(symbol, market_summary)
 
-            # Add financial indicators to RAG
-            for symbol in symbols:
-                if symbol in financial_data:
-                    self.rag_engine.add_financial_indicators(
-                        symbol,
-                        financial_data[symbol],
-                        financial_data[symbol].get('health_score', {})
-                    )
+            # Add financial indicators to RAG (TEMPORARILY DISABLED)
+            # for symbol in symbols:
+            #     if symbol in financial_data:
+            #         self.rag_engine.add_financial_indicators(
+            #             symbol,
+            #             financial_data[symbol],
+            #             financial_data[symbol].get('health_score', {})
+            #         )
 
             # Add sentiment data to RAG
             for symbol in symbols:
@@ -207,7 +209,7 @@ class AlphaRAGOrchestrator:
             # Step 6: Generate predictions using LLM Factory
             logger.info("🤖 Generating AI predictions...")
             predictions = self.llm_factory.generate_predictions(
-                rag_context, portfolio_value, market_summary, sentiment_data, financial_data
+                rag_context, portfolio_value, market_summary, sentiment_data, {}  # Empty financial_data
             )
 
             provider_used = predictions.get('provider_used', 'unknown')
@@ -221,7 +223,7 @@ class AlphaRAGOrchestrator:
             # Step 7: Send email report
             logger.info("📧 Sending email report...")
             email_success = self.email_service.send_portfolio_analysis(
-                settings.EMAIL_TO, portfolio_value, market_summary, sentiment_data, predictions, financial_data
+                settings.EMAIL_TO, portfolio_value, market_summary, sentiment_data, predictions, {}  # Empty financial_data
             )
 
             if email_success:
@@ -230,7 +232,7 @@ class AlphaRAGOrchestrator:
                 logger.warning("⚠️  Email sending failed, but analysis completed")
 
             # Step 8: Display summary
-            self._display_summary(portfolio_value, sentiment_data, predictions, financial_data)
+            self._display_summary(portfolio_value, sentiment_data, predictions, {})
 
             logger.info("🎉 Full analysis completed successfully!")
             return True
