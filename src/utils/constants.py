@@ -23,9 +23,9 @@ DEFAULT_LOG_FILE = "alpharag.log"
 
 # RSS Feed URLs for Indian financial news
 DEFAULT_RSS_FEEDS = [
-    "https://feeds.feedburner.com/ndtvprofit-latest",
     "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
-    "https://www.business-standard.com/rss/markets-106.rss"
+    "https://www.livemint.com/rss/markets",
+    "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms"
 ]
 
 # Financial health scoring weights
