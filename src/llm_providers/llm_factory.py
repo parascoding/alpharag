@@ -101,7 +101,7 @@ class LLMFactory:
             # Add specific configurations for each provider
             if provider_name == 'gemini':
                 provider_kwargs.update({
-                    'model_name': 'gemini-2.5-flash',
+                    'model_name': 'gemini-2.0-flash',
                     'safety_settings': {
                         'HARASSMENT': 'BLOCK_NONE',
                         'HATE_SPEECH': 'BLOCK_NONE',

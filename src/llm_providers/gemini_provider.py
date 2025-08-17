@@ -24,7 +24,7 @@ class GeminiProvider(BaseLLMProvider):
         super().__init__("gemini", api_key, **kwargs)
 
         # Gemini-specific configuration
-        self.model_name = kwargs.get('model_name', 'gemini-2.5-flash')
+        self.model_name = kwargs.get('model_name', 'gemini-2.0-flash')
         self.base_url = "https://generativelanguage.googleapis.com/v1beta"
 
         # Test API key format
@@ -133,7 +133,7 @@ class GeminiProvider(BaseLLMProvider):
             analysis_text = candidate['content']['parts'][0]['text']
 
             # Parse Gemini's response
-            predictions = self._parse_predictions(analysis_text)
+            predictions = self._parse_predictions(analysis_text, available_cash)
             predictions['provider'] = 'gemini'
             predictions['model'] = self.model_name
 
@@ -144,7 +144,7 @@ class GeminiProvider(BaseLLMProvider):
             self.logger.error(f"❌ Error generating predictions with Gemini: {e}")
             return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data, available_cash)
 
-    def _parse_predictions(self, analysis_text: str) -> Dict:
+    def _parse_predictions(self, analysis_text: str, available_cash: float = 0.0) -> Dict:
         """Parse Gemini's structured response"""
         import re
         
@@ -155,7 +155,8 @@ class GeminiProvider(BaseLLMProvider):
             'action_items': [],
             'market_insights': '',
             'timestamp': datetime.now().isoformat(),
-            'raw_analysis': analysis_text
+            'raw_analysis': analysis_text,
+            'available_cash': available_cash
         }
 
         try:
@@ -268,9 +269,9 @@ class GeminiProvider(BaseLLMProvider):
 
             # Parse NEW STOCK PURCHASE RECOMMENDATIONS section
             new_stock_patterns = [
-                r'NEW STOCK PURCHASE RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+PORTFOLIO|3\.\s+PORTFOLIO|$)',
-                r'2\.\s+NEW STOCK PURCHASE RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+PORTFOLIO|3\.\s+PORTFOLIO|$)',
-                r'NEW STOCK.{0,20}RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+PORTFOLIO|3\.\s+PORTFOLIO|$)'
+                r'NEW STOCK PURCHASE RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+(INDIVIDUAL|PORTFOLIO)|INDIVIDUAL STOCK|$)',
+                r'1\.\s+NEW STOCK PURCHASE RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+(INDIVIDUAL|PORTFOLIO)|INDIVIDUAL STOCK|$)',
+                r'NEW STOCK.{0,20}RECOMMENDATIONS?:?\s*(.*?)(?=\d+\.\s+(INDIVIDUAL|PORTFOLIO)|INDIVIDUAL STOCK|$)'
             ]
             
             for pattern in new_stock_patterns:
@@ -374,6 +375,13 @@ class GeminiProvider(BaseLLMProvider):
         lines = section_text.split('\n')
         current_stock = {}
         
+        # First try to parse table format
+        table_parsed = self._parse_table_format(section_text, predictions)
+        if table_parsed:
+            self.logger.info(f"Parsed {len(predictions['new_stock_recommendations'])} new stock recommendations from table format")
+            return
+        
+        # Fallback to original bullet-point parsing
         for line in lines:
             line = line.strip()
             if not line or line.startswith('Available Cash:'):
@@ -441,7 +449,91 @@ class GeminiProvider(BaseLLMProvider):
         if current_stock and 'symbol' in current_stock:
             predictions['new_stock_recommendations'][current_stock['symbol']] = current_stock
         
-        self.logger.info(f"Parsed {len(predictions['new_stock_recommendations'])} new stock recommendations from section")
+        self.logger.info(f"Parsed {len(predictions['new_stock_recommendations'])} new stock recommendations from bullet format")
+
+    def _parse_table_format(self, section_text: str, predictions: Dict) -> bool:
+        """Parse table format for new stock recommendations"""
+        lines = section_text.split('\n')
+        
+        # Find table rows (lines with multiple | separators)
+        table_rows = []
+        for line in lines:
+            if line.count('|') >= 6:  # Table should have at least 7 columns (6 separators)
+                table_rows.append(line.strip())
+        
+        if not table_rows:
+            return False
+        
+        parsed_count = 0
+        for row in table_rows:
+            # Skip header rows and separator rows
+            if '---' in row or 'Stock Symbol' in row or 'Recommended Amount' in row:
+                continue
+            
+            # Split by | and clean up
+            columns = [col.strip() for col in row.split('|')]
+            if len(columns) < 8:  # Need at least 8 columns (including empty first/last)
+                continue
+            
+            # Extract data from columns
+            # Expected format: | Stock Name (SYMBOL.NS) | Amount | Current Price | Target Price | Sector | Thesis | Risk | Confidence |
+            try:
+                stock_name_col = columns[1] if len(columns) > 1 else ""
+                amount_col = columns[2] if len(columns) > 2 else ""
+                current_price_col = columns[3] if len(columns) > 3 else ""
+                target_price_col = columns[4] if len(columns) > 4 else ""
+                sector_col = columns[5] if len(columns) > 5 else ""
+                thesis_col = columns[6] if len(columns) > 6 else ""
+                risk_col = columns[7] if len(columns) > 7 else ""
+                confidence_col = columns[8] if len(columns) > 8 else ""
+                
+                # Extract symbol from stock name column
+                symbol_match = re.search(r'\b([A-Z0-9]+\.NS)\b', stock_name_col.upper())
+                if not symbol_match:
+                    continue
+                
+                symbol = symbol_match.group(1)
+                
+                # Extract numeric values
+                recommended_amount = re.sub(r'[^0-9,]', '', amount_col).replace(',', '')
+                current_price = re.sub(r'[^0-9,.]', '', current_price_col).replace(',', '')
+                target_price = re.sub(r'[^0-9,.]', '', target_price_col).replace(',', '')
+                
+                # Extract confidence number
+                confidence_match = re.search(r'(\d+)', confidence_col)
+                confidence = int(confidence_match.group(1)) if confidence_match else 5
+                
+                # Clean up text fields
+                sector = sector_col.strip()
+                investment_thesis = thesis_col.strip()
+                risk_level = risk_col.strip().upper()
+                
+                # Validate that we have the essential fields
+                if not (recommended_amount and current_price and symbol):
+                    continue
+                
+                # Create stock recommendation
+                stock_rec = {
+                    'symbol': symbol,
+                    'recommended_amount': recommended_amount,
+                    'current_price': current_price,
+                    'target_price': target_price,
+                    'sector': sector,
+                    'investment_thesis': investment_thesis,
+                    'risk_level': risk_level,
+                    'confidence': confidence
+                }
+                
+                predictions['new_stock_recommendations'][symbol] = stock_rec
+                parsed_count += 1
+                
+                self.logger.info(f"Table-parsed {symbol}: ₹{recommended_amount} investment (confidence: {confidence})")
+                
+            except Exception as e:
+                self.logger.warning(f"Error parsing table row: {row[:100]}... Error: {e}")
+                continue
+        
+        return parsed_count > 0
 
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
                                      sentiment_data: Dict, financial_data: Optional[Dict] = None,

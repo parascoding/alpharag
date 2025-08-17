@@ -22,7 +22,7 @@ class EmailService:
             if isinstance(to_emails, str):
                 to_emails = [to_emails]
 
-            subject = f"AlphaRAG Portfolio Analysis - {datetime.now().strftime('%Y-%m-%d')}"
+            subject = f"AlphaRAG Portfolio Analysis - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
             # Create email content
             email_body = self._create_analysis_email(portfolio_data, market_data,

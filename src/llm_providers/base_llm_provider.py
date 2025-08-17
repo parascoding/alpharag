@@ -29,10 +29,10 @@ class BaseLLMProvider(ABC):
         self.api_key = api_key
         self.logger = logging.getLogger(f"{__name__}.{name}")
 
-        # Common configuration  
-        self.max_tokens = kwargs.get('max_tokens', 6000)
-        self.temperature = kwargs.get('temperature', 0.7)
-        self.timeout = kwargs.get('timeout', 30)
+        # Common configuration
+        self.max_tokens = kwargs.get('max_tokens', 20000)
+        self.temperature = kwargs.get('temperature', 0.2)
+        self.timeout = kwargs.get('timeout', 50)
 
         self.logger.info(f"Initialized {name} LLM provider")
 
