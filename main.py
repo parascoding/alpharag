@@ -18,7 +18,7 @@ from src.portfolio_manager import PortfolioManager
 from src.data_ingestion_v2 import MarketDataIngestionV2
 from src.news_sentiment import NewsSentimentAnalyzer
 from src.rag_engine import SimpleRAGEngine
-from src.prediction import ClaudePredictionEngine
+from src.llm_providers.llm_factory import LLMFactory
 from src.email_service import EmailService
 from src.financial_indicators import FinancialIndicatorsFetcher
 import os
@@ -41,7 +41,7 @@ class AlphaRAGOrchestrator:
         self.data_ingestion = None
         self.news_analyzer = None
         self.rag_engine = None
-        self.prediction_engine = None
+        self.llm_factory = None
         self.email_service = None
         self.financial_indicators = None
 
@@ -81,9 +81,25 @@ class AlphaRAGOrchestrator:
             self.rag_engine = SimpleRAGEngine()
             logger.info("✅ RAG engine initialized")
 
-            # Initialize Claude prediction engine
-            self.prediction_engine = ClaudePredictionEngine(settings.ANTHROPIC_API_KEY)
-            logger.info("✅ Claude prediction engine initialized")
+            # Initialize LLM Factory with fallback chain
+            llm_api_keys = settings.get_available_llm_api_keys()
+            self.llm_factory = LLMFactory(
+                primary_provider=settings.PRIMARY_LLM_PROVIDER,
+                fallback_providers=settings.FALLBACK_LLM_PROVIDERS,
+                **llm_api_keys
+            )
+            
+            # Log LLM provider status
+            provider_status = self.llm_factory.get_provider_status()
+            healthy_providers = provider_status['healthy_providers']
+            total_providers = provider_status['total_providers']
+            available_providers = self.llm_factory.get_available_providers()
+            
+            if available_providers:
+                logger.info(f"✅ LLM Factory initialized: {healthy_providers}/{total_providers} providers healthy")
+                logger.info(f"🤖 Available LLMs: {' → '.join(available_providers)}")
+            else:
+                logger.warning("⚠️ No LLM providers available - will use emergency fallback")
 
             # Initialize email service
             self.email_service = EmailService(
@@ -188,12 +204,19 @@ class AlphaRAGOrchestrator:
             rag_context = self.rag_engine.get_all_context()
             logger.info("RAG context built successfully")
 
-            # Step 6: Generate predictions using Claude
+            # Step 6: Generate predictions using LLM Factory
             logger.info("🤖 Generating AI predictions...")
-            predictions = self.prediction_engine.generate_predictions(
+            predictions = self.llm_factory.generate_predictions(
                 rag_context, portfolio_value, market_summary, sentiment_data, financial_data
             )
-            logger.info("Predictions generated successfully")
+            
+            provider_used = predictions.get('provider_used', 'unknown')
+            if predictions.get('emergency_fallback', False):
+                logger.warning("🚨 Used emergency fallback for predictions")
+            elif predictions.get('fallback_mode', False):
+                logger.warning(f"⚠️ Used fallback mode with {provider_used}")
+            else:
+                logger.info(f"✅ Predictions generated successfully using {provider_used.upper()}")
 
             # Step 7: Send email report
             logger.info("📧 Sending email report...")
