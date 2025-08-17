@@ -1,6 +1,11 @@
 import os
 from typing import List
 from dotenv import load_dotenv
+from src.utils.constants import (
+    DEFAULT_SMTP_SERVER, DEFAULT_SMTP_PORT, DEFAULT_PORTFOLIO_FILE,
+    DEFAULT_RSS_FEEDS, LLM_CLAUDE, LLM_GPT, LLM_GEMINI, 
+    PROVIDER_MOCK
+)
 
 load_dotenv()
 
@@ -16,13 +21,13 @@ class Settings:
         self.CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')  # Alternative name for Claude
 
         # LLM Provider Configuration
-        self.PRIMARY_LLM_PROVIDER = os.getenv('PRIMARY_LLM_PROVIDER', 'gemini')
-        fallback_llm_providers_raw = os.getenv('FALLBACK_LLM_PROVIDERS', 'gpt,claude')
+        self.PRIMARY_LLM_PROVIDER = os.getenv('PRIMARY_LLM_PROVIDER', LLM_GEMINI)
+        fallback_llm_providers_raw = os.getenv('FALLBACK_LLM_PROVIDERS', f'{LLM_GPT},{LLM_CLAUDE}')
         self.FALLBACK_LLM_PROVIDERS = [provider.strip() for provider in fallback_llm_providers_raw.split(',') if provider.strip()]
 
         # Email settings
-        self.EMAIL_SMTP_SERVER = os.getenv('EMAIL_SMTP_SERVER', 'smtp.gmail.com')
-        self.EMAIL_SMTP_PORT = int(os.getenv('EMAIL_SMTP_PORT', '587'))
+        self.EMAIL_SMTP_SERVER = os.getenv('EMAIL_SMTP_SERVER', DEFAULT_SMTP_SERVER)
+        self.EMAIL_SMTP_PORT = int(os.getenv('EMAIL_SMTP_PORT', str(DEFAULT_SMTP_PORT)))
         self.EMAIL_USER = os.getenv('EMAIL_USER')
         self.EMAIL_PASS = os.getenv('EMAIL_PASS')
 
@@ -34,25 +39,22 @@ class Settings:
             self.EMAIL_TO = []
 
         # Portfolio configuration
-        self.PORTFOLIO_FILE = 'data/portfolio.csv'
+        self.PORTFOLIO_FILE = DEFAULT_PORTFOLIO_FILE
 
         # Optional API keys for data providers
         self.ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
         self.UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN')
 
         # Data Provider Configuration
-        self.PRIMARY_DATA_PROVIDER = os.getenv('PRIMARY_DATA_PROVIDER', 'mock')
-        fallback_providers_raw = os.getenv('FALLBACK_DATA_PROVIDERS', 'mock')
+        self.PRIMARY_DATA_PROVIDER = os.getenv('PRIMARY_DATA_PROVIDER', PROVIDER_MOCK)
+        fallback_providers_raw = os.getenv('FALLBACK_DATA_PROVIDERS', PROVIDER_MOCK)
         self.FALLBACK_DATA_PROVIDERS = [provider.strip() for provider in fallback_providers_raw.split(',') if provider.strip()]
 
         # Financial Indicators Configuration
         self.USE_REAL_FINANCIAL_APIS = os.getenv('USE_REAL_FINANCIAL_APIS', 'false').lower() == 'true'
 
         # RSS Feeds for news sentiment
-        self.RSS_FEEDS = [
-            'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
-            'https://www.moneycontrol.com/rss/business.xml'
-        ]
+        self.RSS_FEEDS = DEFAULT_RSS_FEEDS
 
     def get_available_llm_api_keys(self):
         """Get dictionary of available LLM API keys"""
@@ -89,7 +91,7 @@ class Settings:
 
         # Validate LLM provider configuration
         all_llm_providers = [self.PRIMARY_LLM_PROVIDER] + self.FALLBACK_LLM_PROVIDERS
-        valid_providers = ['gemini', 'gpt', 'claude']
+        valid_providers = [LLM_GEMINI, LLM_GPT, LLM_CLAUDE]
 
         for provider in all_llm_providers:
             if provider not in valid_providers:
