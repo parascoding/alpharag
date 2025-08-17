@@ -187,6 +187,22 @@ class EmailService:
                 f"(Score: {data['sentiment_score']:+.3f}, Articles: {data['article_count']})"
             )
 
+            # Add news article links if available
+            articles = data.get('articles', [])
+            if articles:
+                lines.append("     📰 Related News:")
+                for i, article in enumerate(articles[:3], 1):  # Show top 3 articles
+                    title = article.get('title', 'Untitled')
+                    # Check for both 'url' and 'link' fields (different providers use different fields)
+                    article_url = article.get('url') or article.get('link')
+                    
+                    if article_url:
+                        lines.append(f"       {i}. {title}")
+                        lines.append(f"          🔗 {article_url}")
+                    else:
+                        lines.append(f"       {i}. {title} (No link available)")
+                lines.append("")  # Empty line after articles
+
         return "\n".join(lines)
 
     def _format_financial_scorecard(self, financial_data: Optional[Dict]) -> str:
