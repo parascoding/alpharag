@@ -31,12 +31,22 @@ class FinancialIndicatorsFetcher:
         self.cache = {}
         self.cache_timeout = 86400  # 24 hours for financial data
 
-        # Initialize Upstox financial calculator
+        # Initialize dynamic financial data provider
         if upstox_provider:
-            from .upstox_financial_calculator import UpstoxFinancialCalculator
-            self.upstox_calculator = UpstoxFinancialCalculator(upstox_provider)
-            calculation_mode = "UPSTOX calculated ratios"
+            try:
+                from .dynamic_financial_data_provider import DynamicFinancialDataProvider
+                self.dynamic_provider = DynamicFinancialDataProvider(
+                    upstox_provider=upstox_provider,
+                    alpha_vantage_key=alpha_vantage_api_key
+                )
+                calculation_mode = "DYNAMIC multi-source data"
+            except ImportError:
+                from .upstox_financial_calculator import UpstoxFinancialCalculator
+                self.upstox_calculator = UpstoxFinancialCalculator(upstox_provider)
+                self.dynamic_provider = None
+                calculation_mode = "UPSTOX calculated ratios (legacy)"
         else:
+            self.dynamic_provider = None
             self.upstox_calculator = None
             calculation_mode = "MOCK data only"
 
@@ -62,10 +72,31 @@ class FinancialIndicatorsFetcher:
         """
         financial_data = {}
 
-        # Try Upstox-calculated ratios first if available
-        if self.use_real_apis and self.upstox_calculator:
+        # Try dynamic multi-source data first if available
+        if self.use_real_apis and self.dynamic_provider:
             try:
-                logger.info("Using Upstox-calculated financial ratios")
+                logger.info("Using dynamic multi-source financial data")
+                financial_data = self.dynamic_provider.get_financial_indicators_batch(symbols)
+
+                # Check if we got data for all symbols
+                missing_symbols = [s for s in symbols if s not in financial_data]
+                if missing_symbols:
+                    logger.warning(f"Missing dynamic data for: {missing_symbols}")
+                    # Fall back to mock data for missing symbols
+                    for symbol in missing_symbols:
+                        mock_data = self._generate_mock_financial_data(symbol)
+                        if mock_data:
+                            financial_data[symbol] = mock_data
+
+                return financial_data
+
+            except Exception as e:
+                logger.error(f"Dynamic provider failed: {e} - falling back to legacy methods")
+
+        # Try legacy Upstox calculator if available
+        if self.use_real_apis and hasattr(self, 'upstox_calculator') and self.upstox_calculator:
+            try:
+                logger.info("Using legacy Upstox-calculated financial ratios")
                 financial_data = self.upstox_calculator.get_financial_indicators_batch(symbols)
 
                 # Check if we got data for all symbols
@@ -81,7 +112,7 @@ class FinancialIndicatorsFetcher:
                 return financial_data
 
             except Exception as e:
-                logger.error(f"Upstox calculation failed: {e} - falling back to legacy methods")
+                logger.error(f"Legacy Upstox calculation failed: {e} - falling back to Alpha Vantage/mock")
 
         # Legacy fallback: Alpha Vantage or mock data
         for symbol in symbols:

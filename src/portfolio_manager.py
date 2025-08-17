@@ -3,36 +3,46 @@ from datetime import datetime
 from typing import List, Dict, Optional
 import logging
 
+try:
+    from .dynamic_portfolio_parser import DynamicPortfolioParser
+except ImportError:
+    from dynamic_portfolio_parser import DynamicPortfolioParser
+
 logger = logging.getLogger(__name__)
 
 class PortfolioManager:
     def __init__(self, portfolio_file: str):
         self.portfolio_file = portfolio_file
         self.portfolio_df = None
+        self.dynamic_parser = DynamicPortfolioParser(portfolio_file)
+        self.detected_format = None
         self.load_portfolio()
 
     def load_portfolio(self) -> pd.DataFrame:
         try:
-            self.portfolio_df = pd.read_csv(self.portfolio_file)
-            self._validate_portfolio()
-            logger.info(f"Loaded portfolio with {len(self.portfolio_df)} holdings")
+            # Use dynamic parser to handle both formats
+            self.portfolio_df = self.dynamic_parser.load_and_parse_portfolio()
+            self.detected_format = self.dynamic_parser.detected_format
+
+            logger.info(f"Loaded {self.detected_format} format portfolio with {len(self.portfolio_df)} holdings")
             return self.portfolio_df
         except Exception as e:
             logger.error(f"Error loading portfolio: {e}")
             raise
 
     def _validate_portfolio(self):
-        required_columns = ['symbol', 'quantity', 'buy_price', 'purchase_date']
+        # Validation is now handled by the dynamic parser
+        # Just ensure we have the expected columns after parsing
+        required_columns = ['symbol', 'quantity', 'buy_price']
+
+        if self.portfolio_df is None or self.portfolio_df.empty:
+            raise ValueError("Portfolio file is empty or failed to parse")
+
         missing_columns = [col for col in required_columns if col not in self.portfolio_df.columns]
         if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
+            raise ValueError(f"Missing required columns after parsing: {missing_columns}")
 
-        if self.portfolio_df.empty:
-            raise ValueError("Portfolio file is empty")
-
-        for idx, row in self.portfolio_df.iterrows():
-            if pd.isna(row['symbol']) or pd.isna(row['quantity']) or pd.isna(row['buy_price']):
-                raise ValueError(f"Missing data in row {idx + 1}")
+        logger.info(f"Portfolio validation passed for {self.detected_format} format")
 
     def get_symbols(self) -> List[str]:
         return self.portfolio_df['symbol'].tolist()

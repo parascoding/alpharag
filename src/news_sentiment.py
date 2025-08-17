@@ -11,6 +11,14 @@ import time
 import re
 import random
 
+try:
+    from .data_providers.upstox_instrument_mapper import upstox_mapper
+    from .dynamic_news_keyword_generator import DynamicNewsKeywordGenerator
+except ImportError:
+    # For standalone testing
+    from data_providers.upstox_instrument_mapper import upstox_mapper
+    from dynamic_news_keyword_generator import DynamicNewsKeywordGenerator
+
 logger = logging.getLogger(__name__)
 
 class NewsSentimentAnalyzer:
@@ -19,6 +27,9 @@ class NewsSentimentAnalyzer:
         self.cache = {}
         self.cache_timeout = 1800  # 30 minutes
         self.use_mock_data = False  # Default to real data
+        self.keyword_generator = DynamicNewsKeywordGenerator()
+        self.companies_info = {}  # Cache for company information
+        self.dynamic_keywords = {}  # Cache for generated keywords
 
     def _load_mock_news_data(self) -> Dict:
         """
@@ -270,24 +281,41 @@ class NewsSentimentAnalyzer:
         return summary
 
     def _get_company_keywords(self, symbols: List[str]) -> Dict[str, List[str]]:
-        # Map NSE symbols to company names and keywords
-        keyword_map = {
-            'RELIANCE.NS': [
-                'reliance', 'ril', 'reliance industries', 'mukesh ambani', 'ambani',
-                'jamnagar', 'petrochemicals', 'refinery', 'retail', 'jio'
-            ],
-            'TCS.NS': [
-                'tcs', 'tata consultancy', 'tata consultancy services', 'tata group',
-                'it services', 'consulting', 'technology services', 'tata sons', 'tata'
-            ],
-            'INFY.NS': [
-                'infosys', 'infy', 'it services', 'technology', 'consulting',
-                'software services', 'bangalore', 'narayana murthy', 'nandan nilekani'
-            ],
-        }
+        """
+        Get dynamic company keywords using Upstox instrument data
+        """
+        try:
+            # Get fresh company information if not cached
+            if not self.companies_info or set(symbols) != set(self.companies_info.keys()):
+                logger.info(f"Fetching company information for {len(symbols)} symbols...")
+                self.companies_info = upstox_mapper.bulk_get_company_info(symbols)
 
-        return {symbol: keyword_map.get(symbol, [symbol.replace('.NS', '').lower()])
-                for symbol in symbols}
+                # Generate dynamic keywords
+                self.dynamic_keywords = self.keyword_generator.bulk_generate_keywords(self.companies_info)
+
+                logger.info(f"Generated dynamic keywords for {len(self.dynamic_keywords)} companies")
+
+            # Convert to the expected format
+            keyword_map = {}
+            for symbol in symbols:
+                if symbol in self.dynamic_keywords:
+                    keyword_map[symbol] = self.dynamic_keywords[symbol].all_keywords
+                else:
+                    # Fallback for symbols without company info
+                    base_symbol = symbol.replace('.NS', '').replace('.BO', '').lower()
+                    keyword_map[symbol] = [base_symbol]
+                    logger.warning(f"Using fallback keywords for {symbol}")
+
+            # Log keyword statistics
+            total_keywords = sum(len(keywords) for keywords in keyword_map.values())
+            logger.info(f"Using {total_keywords} total keywords for {len(symbols)} symbols (avg: {total_keywords/len(symbols):.1f} per symbol)")
+
+            return keyword_map
+
+        except Exception as e:
+            logger.error(f"Error generating dynamic keywords: {e}")
+            # Fallback to basic symbol-based keywords
+            return {symbol: [symbol.replace('.NS', '').replace('.BO', '').lower()] for symbol in symbols}
 
     def _fetch_rss_feed(self, feed_url: str, hours_back: int) -> List[Dict]:
         articles = []
