@@ -94,12 +94,24 @@ class AlphaRAGOrchestrator:
             )
             logger.info("✅ Email service initialized")
 
-            # Initialize financial indicators
+            # Initialize financial indicators with Upstox support
+            upstox_provider = None
+            if hasattr(self.data_ingestion, 'provider') and self.data_ingestion.provider.name == 'upstox':
+                upstox_provider = self.data_ingestion.provider
+                logger.info("🔗 Passing Upstox provider to financial indicators")
+            
             self.financial_indicators = FinancialIndicatorsFetcher(
                 settings.ALPHA_VANTAGE_API_KEY,
-                settings.USE_REAL_FINANCIAL_APIS
+                settings.USE_REAL_FINANCIAL_APIS,
+                upstox_provider=upstox_provider
             )
-            mode = "real APIs" if settings.USE_REAL_FINANCIAL_APIS else "mock data"
+            
+            if upstox_provider and settings.USE_REAL_FINANCIAL_APIS:
+                mode = "Upstox-calculated ratios"
+            elif settings.USE_REAL_FINANCIAL_APIS:
+                mode = "Alpha Vantage APIs (legacy)"
+            else:
+                mode = "mock data"
             logger.info(f"✅ Financial indicators initialized ({mode})")
 
             logger.info("🚀 All components initialized successfully!")

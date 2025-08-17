@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Financial Indicators Module for AlphaRAG
-Provides comprehensive fundamental analysis with mock-first approach and real API migration capability
+Provides comprehensive fundamental analysis with Upstox-calculated ratios and mock data fallback
 """
 
 import requests
@@ -16,21 +16,38 @@ import time
 logger = logging.getLogger(__name__)
 
 class FinancialIndicatorsFetcher:
-    def __init__(self, alpha_vantage_api_key: Optional[str] = None, use_real_apis: bool = False):
+    def __init__(self, alpha_vantage_api_key: Optional[str] = None, use_real_apis: bool = False, upstox_provider=None):
         """
         Initialize Financial Indicators Fetcher
 
         Args:
-            alpha_vantage_api_key: API key for Alpha Vantage (optional)
-            use_real_apis: Flag to switch between mock data and real APIs
+            alpha_vantage_api_key: API key for Alpha Vantage (optional, deprecated)
+            use_real_apis: Flag to switch between calculated and mock data
+            upstox_provider: Upstox provider instance for market data
         """
         self.alpha_vantage_api_key = alpha_vantage_api_key
         self.use_real_apis = use_real_apis
+        self.upstox_provider = upstox_provider
         self.cache = {}
         self.cache_timeout = 86400  # 24 hours for financial data
+        
+        # Initialize Upstox financial calculator
+        if upstox_provider:
+            from .upstox_financial_calculator import UpstoxFinancialCalculator
+            self.upstox_calculator = UpstoxFinancialCalculator(upstox_provider)
+            calculation_mode = "UPSTOX calculated ratios"
+        else:
+            self.upstox_calculator = None
+            calculation_mode = "MOCK data only"
 
         # Log the mode
-        mode = "REAL APIs" if use_real_apis and alpha_vantage_api_key else "MOCK data"
+        if use_real_apis and upstox_provider:
+            mode = calculation_mode
+        elif use_real_apis and alpha_vantage_api_key:
+            mode = "Alpha Vantage APIs (legacy)"
+        else:
+            mode = "MOCK data"
+            
         logger.info(f"Financial Indicators initialized in {mode} mode")
 
     def get_financial_indicators(self, symbols: List[str]) -> Dict[str, Dict]:
@@ -45,17 +62,39 @@ class FinancialIndicatorsFetcher:
         """
         financial_data = {}
 
+        # Try Upstox-calculated ratios first if available
+        if self.use_real_apis and self.upstox_calculator:
+            try:
+                logger.info("Using Upstox-calculated financial ratios")
+                financial_data = self.upstox_calculator.get_financial_indicators_batch(symbols)
+                
+                # Check if we got data for all symbols
+                missing_symbols = [s for s in symbols if s not in financial_data]
+                if missing_symbols:
+                    logger.warning(f"Missing Upstox calculations for: {missing_symbols}")
+                    # Fall back to mock data for missing symbols
+                    for symbol in missing_symbols:
+                        mock_data = self._generate_mock_financial_data(symbol)
+                        if mock_data:
+                            financial_data[symbol] = mock_data
+                            
+                return financial_data
+                
+            except Exception as e:
+                logger.error(f"Upstox calculation failed: {e} - falling back to legacy methods")
+
+        # Legacy fallback: Alpha Vantage or mock data
         for symbol in symbols:
             try:
                 if self.use_real_apis and self.alpha_vantage_api_key:
-                    # Try real API first, fallback to mock if fails
+                    # Try Alpha Vantage (legacy)
                     indicators = self._get_real_financial_data(symbol)
                     if not indicators:
-                        logger.error(f"Real API FAILED for {symbol} - FALLING BACK TO MOCK DATA - Alpha Vantage not working")
+                        logger.error(f"Alpha Vantage FAILED for {symbol} - FALLING BACK TO MOCK DATA")
                         indicators = self._generate_mock_financial_data(symbol)
                 else:
                     # Use mock data
-                    logger.error(f"Using MOCK financial data for {symbol} - Real APIs not configured")
+                    logger.info(f"Using MOCK financial data for {symbol}")
                     indicators = self._generate_mock_financial_data(symbol)
 
                 if indicators:
