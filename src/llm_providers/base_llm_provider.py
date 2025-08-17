@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import logging
+from src.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,9 @@ class BaseLLMProvider(ABC):
         self.name = name
         self.api_key = api_key
         self.logger = logging.getLogger(f"{__name__}.{name}")
+        
+        # Initialize prompt manager
+        self.prompt_manager = PromptManager()
 
         # Common configuration
         self.max_tokens = kwargs.get('max_tokens', 20000)
@@ -71,7 +75,27 @@ class BaseLLMProvider(ABC):
                               financial_data: Optional[Dict] = None,
                               available_cash: float = 0.0) -> str:
         """
-        Build the analysis prompt (common across all providers)
+        Build the analysis prompt using the external prompt manager
+        This allows easy modification of prompts without touching code
+        """
+        try:
+            # Use prompt manager to get customizable prompt
+            prompt = self.prompt_manager.get_analysis_prompt(
+                portfolio_data, market_data, sentiment_data, available_cash
+            )
+            
+            self.logger.info("Using external prompt template")
+            return prompt
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to load external prompt template: {e}")
+            # Fallback to original hardcoded prompt
+            return self._build_fallback_prompt(portfolio_data, market_data, sentiment_data, available_cash)
+    
+    def _build_fallback_prompt(self, portfolio_data: Dict, market_data: Dict, 
+                              sentiment_data: Dict, available_cash: float = 0.0) -> str:
+        """
+        Fallback prompt if external template loading fails
         """
         prompt = f"""Expert analysis for Indian equity portfolio.
 

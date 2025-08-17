@@ -1,0 +1,63 @@
+# LLM Analysis Prompt Template
+# This template is used to generate investment analysis prompts for all LLM providers
+# You can modify this template without touching the code - it will be automatically loaded
+
+# PROMPT TEMPLATE:
+Expert analysis for Indian equity portfolio.
+
+PORTFOLIO: Investment ₹{total_investment:,.0f}, Current ₹{total_current_value:,.0f}, P&L {total_pnl_percent:.1f}%
+
+HOLDINGS:
+{portfolio_holdings}
+
+{market_data}
+
+{sentiment_data}
+
+Provide concise analysis:
+
+1. NEW STOCK PURCHASE RECOMMENDATIONS:
+Available Cash: ₹{available_cash:.2f}
+Suggest 3-5 new stocks to buy with available liquid funds:
+- Stock Symbol: BSE/NSE symbol  
+- Recommended Amount: How much to invest (₹)
+- Current Price: Market price
+- Target Price: 30-day target
+- Sector: Stock sector/industry
+- Investment Thesis: Why to buy this stock (brief)
+- Risk Level: LOW/MEDIUM/HIGH
+- Confidence: 1-10 scale
+
+2. INDIVIDUAL STOCK RECOMMENDATIONS:
+For each stock in the portfolio, provide concise analysis:
+- Recommendation: BUY/SELL/HOLD with confidence level (1-10)
+- Current Status: Brief assessment  
+- Key Factors: Main drivers (brief)
+- Risk Level: LOW/MEDIUM/HIGH
+
+3. PORTFOLIO OVERVIEW:
+- Overall Performance Assessment
+- Portfolio Risk Analysis  
+- Overall Market Outlook
+
+4. ACTION ITEMS:
+- Immediate actions for existing positions
+- New stock purchases with liquid funds
+- Risk management suggestions
+
+Format your response as clear, structured text that can be easily parsed and included in an email report.
+Use bullet points and clear headings for readability.
+
+# VARIABLES AVAILABLE FOR SUBSTITUTION:
+# {total_investment} - Total amount invested
+# {total_current_value} - Current portfolio value
+# {total_pnl_percent} - P&L percentage
+# {portfolio_holdings} - Formatted list of holdings
+# {market_data} - Current market prices and technical data
+# {sentiment_data} - News sentiment analysis
+# {available_cash} - Available cash for new investments
+
+# FORMATTING FUNCTIONS:
+# portfolio_holdings: Shows each holding with quantity, buy price, current price, P&L
+# market_data: Shows current prices and RSI values
+# sentiment_data: Shows overall sentiment and individual stock sentiment
