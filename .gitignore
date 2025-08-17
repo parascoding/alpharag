@@ -61,3 +61,4 @@ test_email_simple.py
 # Temporary files
 *.tmp
 *.temp
+cache/

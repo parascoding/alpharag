@@ -19,30 +19,30 @@ class MockProvider(BaseDataProvider):
     Mock implementation using existing JSON mock data
     This ensures we can test the provider architecture with known data
     """
-    
+
     def __init__(self, **kwargs):
         super().__init__("mock", **kwargs)
         self.mock_data = self._load_mock_data()
-        
+
     def _load_mock_data(self) -> Dict:
         """Load mock data from JSON file"""
         try:
             mock_data_path = Path(__file__).parent.parent.parent / 'mock_data' / 'market_data.json'
-            
+
             if not mock_data_path.exists():
                 self.logger.warning(f"Mock data file not found: {mock_data_path}")
                 return self._get_fallback_data()
-            
+
             with open(mock_data_path, 'r') as f:
                 data = json.load(f)
-            
+
             self.logger.error(f"Using MOCK data from {mock_data_path} - Real APIs not available")
             return data['market_data']
-            
+
         except Exception as e:
             self.logger.error(f"Error loading mock data: {e}")
             return self._get_fallback_data()
-    
+
     def _get_fallback_data(self) -> Dict:
         """Fallback data if JSON is not available"""
         return {
@@ -71,48 +71,48 @@ class MockProvider(BaseDataProvider):
                 },
                 'INFY.NS': {
                     'name': 'Infosys Limited',
-                    'sector': 'Technology', 
+                    'sector': 'Technology',
                     'industry': 'Information Technology Services',
                     'market_cap': 650000000000
                 }
             }
         }
-    
+
     def get_current_price(self, symbol: str) -> Optional[float]:
         """Get current price with slight randomization"""
         try:
             stock_prices = self.mock_data.get('stock_prices', {})
-            
+
             if symbol in stock_prices:
                 base_price = stock_prices[symbol].get('current_price', 0)
                 # Add slight random variation (±2%) to simulate real-time changes
                 variation = base_price * random.uniform(-0.02, 0.02)
                 price = base_price + variation
-                
+
                 self.logger.error(f"Using MOCK price for {symbol}: ₹{price:.2f} - Real price API not available")
                 return float(price)
-            
+
             self.logger.warning(f"No price data found for {symbol}")
             return None
-            
+
         except Exception as e:
             self.logger.error(f"Error getting price for {symbol}: {e}")
             return None
-    
+
     def get_current_prices(self, symbols: List[str]) -> Dict[str, float]:
         """Get current prices for multiple symbols"""
         prices = {}
-        
+
         self.logger.error(f"Using MOCK prices for {len(symbols)} symbols - Real price APIs not available")
-        
+
         for symbol in symbols:
             price = self.get_current_price(symbol)
             prices[symbol] = price if price is not None else 0.0
-        
+
         successful = len([p for p in prices.values() if p > 0])
         self.logger.error(f"Using MOCK prices: {successful}/{len(symbols)} symbols - Real APIs not working")
         return prices
-    
+
     def get_historical_data(self, symbol: str, period: str = "1mo") -> Optional[pd.DataFrame]:
         """Generate mock historical data"""
         try:
@@ -121,23 +121,23 @@ class MockProvider(BaseDataProvider):
             stock_prices = self.mock_data.get('stock_prices', {})
             if symbol in stock_prices:
                 base_price = stock_prices[symbol].get('current_price', 1000)
-            
+
             # Generate date range
             days = 30 if period == "1mo" else 90
             dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
-            
+
             # Generate mock OHLCV data
             data = []
             for i, date in enumerate(dates):
                 # Create price trend around base price
                 price_trend = base_price + (i - days/2) * random.uniform(-2, 2)
                 daily_volatility = base_price * 0.02  # 2% daily volatility
-                
+
                 open_price = price_trend + random.uniform(-daily_volatility, daily_volatility)
                 high_price = open_price + random.uniform(0, daily_volatility)
                 low_price = open_price - random.uniform(0, daily_volatility)
                 close_price = open_price + random.uniform(-daily_volatility/2, daily_volatility/2)
-                
+
                 data.append({
                     'Date': date,
                     'Open': max(0, open_price),
@@ -146,28 +146,28 @@ class MockProvider(BaseDataProvider):
                     'Close': max(0, close_price),
                     'Volume': random.randint(1000000, 5000000)
                 })
-            
+
             hist_data = pd.DataFrame(data).set_index('Date')
-            
+
             # Calculate technical indicators
             hist_data['SMA_5'] = hist_data['Close'].rolling(window=5).mean()
             hist_data['SMA_20'] = hist_data['Close'].rolling(window=20).mean()
             hist_data['RSI'] = self._calculate_rsi(hist_data['Close'])
-            
+
             self.logger.error(f"Using MOCK historical data for {symbol}: {len(hist_data)} days - Real APIs not available")
             return hist_data
-            
+
         except Exception as e:
             self.logger.error(f"Error generating historical data for {symbol}: {e}")
             return None
-    
+
     def get_company_info(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Get mock company information"""
         try:
             # Use fallback company data since it's not in the JSON
             fallback_data = self._get_fallback_data()
             company_data = fallback_data.get('company_info', {})
-            
+
             if symbol in company_data:
                 info = company_data[symbol].copy()
                 info.update({
@@ -179,21 +179,21 @@ class MockProvider(BaseDataProvider):
                     'exchange': 'NSI',
                     'timestamp': datetime.now().isoformat()
                 })
-                
+
                 self.logger.error(f"Using MOCK company info for {symbol}: {info['name']} - Real APIs not available")
                 return info
-            
+
             self.logger.warning(f"No company info found for {symbol}")
             return None
-            
+
         except Exception as e:
             self.logger.error(f"Error getting company info for {symbol}: {e}")
             return None
-    
+
     def is_available(self) -> bool:
         """Mock provider is always available"""
         return True
-    
+
     def _calculate_rsi(self, prices: pd.Series, window: int = 14) -> pd.Series:
         """Calculate RSI"""
         delta = prices.diff()
