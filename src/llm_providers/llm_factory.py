@@ -19,18 +19,18 @@ class LLMFactory:
     """
     Factory class for creating and managing LLM providers with fallback chain
     """
-    
+
     # Registry of available providers
     PROVIDER_REGISTRY = {
         'gemini': GeminiProvider,
         'gpt': GPTProvider,
         'claude': ClaudeProvider
     }
-    
+
     def __init__(self, primary_provider: str, fallback_providers: List[str], **api_keys):
         """
         Initialize LLM factory with fallback chain
-        
+
         Args:
             primary_provider: Primary LLM provider to use
             fallback_providers: List of fallback providers in order
@@ -39,14 +39,14 @@ class LLMFactory:
         self.primary_provider_name = primary_provider
         self.fallback_provider_names = fallback_providers
         self.api_keys = api_keys
-        
+
         # Initialize providers
         self.providers = {}
         self.provider_chain = []
-        
+
         # Create complete provider chain
         all_providers = [primary_provider] + fallback_providers
-        
+
         for provider_name in all_providers:
             if provider_name in self.PROVIDER_REGISTRY:
                 api_key = self._get_api_key_for_provider(provider_name)
@@ -65,12 +65,12 @@ class LLMFactory:
                     logger.warning(f"⚠️ No API key provided for {provider_name}")
             else:
                 logger.error(f"❌ Unknown provider: {provider_name}")
-        
+
         if not self.providers:
             logger.error("❌ No LLM providers could be initialized!")
         else:
             logger.info(f"🚀 LLM Factory initialized with chain: {' → '.join(self.provider_chain)}")
-    
+
     def _get_api_key_for_provider(self, provider_name: str) -> Optional[str]:
         """Get API key for a specific provider"""
         key_mappings = {
@@ -78,26 +78,26 @@ class LLMFactory:
             'gpt': ['OPENAI_API_KEY', 'GPT_API_KEY'],
             'claude': ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY']
         }
-        
+
         if provider_name in key_mappings:
             for key_name in key_mappings[provider_name]:
                 if key_name in self.api_keys and self.api_keys[key_name]:
                     return self.api_keys[key_name]
-        
+
         return None
-    
+
     def _create_provider(self, provider_name: str, api_key: str) -> Optional[BaseLLMProvider]:
         """Create a provider instance"""
         try:
             provider_class = self.PROVIDER_REGISTRY[provider_name]
-            
+
             # Provider-specific configurations
             provider_kwargs = {
                 'api_key': api_key,
                 'max_tokens': 4000,
                 'temperature': 0.7
             }
-            
+
             # Add specific configurations for each provider
             if provider_name == 'gemini':
                 provider_kwargs.update({
@@ -118,13 +118,13 @@ class LLMFactory:
                 provider_kwargs.update({
                     'model_name': 'claude-3-sonnet-20240229'
                 })
-            
+
             return provider_class(**provider_kwargs)
-            
+
         except Exception as e:
             logger.error(f"Error creating {provider_name} provider: {e}")
             return None
-    
+
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
                            financial_data: Optional[Dict] = None) -> Dict:
@@ -134,24 +134,24 @@ class LLMFactory:
         if not self.providers:
             logger.error("❌ No LLM providers available - using rule-based fallback")
             return self._generate_emergency_fallback(portfolio_data, market_data, sentiment_data, financial_data)
-        
+
         # Try each provider in the chain
         for provider_name in self.provider_chain:
             try:
                 provider = self.providers[provider_name]
-                
+
                 # Check if provider is available
                 if not provider.is_available():
                     logger.warning(f"⚠️ {provider_name.upper()} provider not available, trying next...")
                     continue
-                
+
                 logger.info(f"🤖 Attempting to generate predictions with {provider_name.upper()}...")
-                
+
                 # Generate predictions
                 predictions = provider.generate_predictions(
                     rag_context, portfolio_data, market_data, sentiment_data, financial_data
                 )
-                
+
                 # Check if we got valid predictions (not fallback)
                 if predictions and not predictions.get('fallback_mode', False):
                     logger.info(f"✅ Successfully generated predictions using {provider_name.upper()}")
@@ -160,20 +160,20 @@ class LLMFactory:
                     return predictions
                 else:
                     logger.warning(f"⚠️ {provider_name.upper()} returned fallback predictions, trying next...")
-                    
+
             except Exception as e:
                 logger.error(f"❌ Error with {provider_name}: {e}, trying next...")
                 continue
-        
+
         # If all providers failed, use emergency fallback
         logger.error("❌ All LLM providers failed - using emergency rule-based fallback")
         return self._generate_emergency_fallback(portfolio_data, market_data, sentiment_data, financial_data)
-    
+
     def _generate_emergency_fallback(self, portfolio_data: Dict, market_data: Dict,
                                    sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
         """Emergency fallback when all LLM providers fail"""
         logger.error("🚨 EMERGENCY FALLBACK - All LLM providers failed")
-        
+
         predictions = {
             'individual_recommendations': {},
             'portfolio_analysis': 'Emergency analysis: All AI providers unavailable. Using rule-based recommendations.',
@@ -246,7 +246,7 @@ class LLMFactory:
             }
 
         return predictions
-    
+
     def get_provider_status(self) -> Dict[str, Any]:
         """Get status of all providers"""
         status = {
@@ -257,7 +257,7 @@ class LLMFactory:
             'healthy_providers': 0,
             'total_providers': len(self.providers)
         }
-        
+
         for name, provider in self.providers.items():
             try:
                 health = provider.health_check()
@@ -270,9 +270,9 @@ class LLMFactory:
                     'healthy': False,
                     'error': str(e)
                 }
-        
+
         return status
-    
+
     def get_available_providers(self) -> List[str]:
         """Get list of currently available providers"""
         available = []

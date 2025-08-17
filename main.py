@@ -88,13 +88,13 @@ class AlphaRAGOrchestrator:
                 fallback_providers=settings.FALLBACK_LLM_PROVIDERS,
                 **llm_api_keys
             )
-            
+
             # Log LLM provider status
             provider_status = self.llm_factory.get_provider_status()
             healthy_providers = provider_status['healthy_providers']
             total_providers = provider_status['total_providers']
             available_providers = self.llm_factory.get_available_providers()
-            
+
             if available_providers:
                 logger.info(f"✅ LLM Factory initialized: {healthy_providers}/{total_providers} providers healthy")
                 logger.info(f"🤖 Available LLMs: {' → '.join(available_providers)}")
@@ -115,13 +115,13 @@ class AlphaRAGOrchestrator:
             if hasattr(self.data_ingestion, 'provider') and self.data_ingestion.provider.name == 'upstox':
                 upstox_provider = self.data_ingestion.provider
                 logger.info("🔗 Passing Upstox provider to financial indicators")
-            
+
             self.financial_indicators = FinancialIndicatorsFetcher(
                 settings.ALPHA_VANTAGE_API_KEY,
                 settings.USE_REAL_FINANCIAL_APIS,
                 upstox_provider=upstox_provider
             )
-            
+
             if upstox_provider and settings.USE_REAL_FINANCIAL_APIS:
                 mode = "Upstox-calculated ratios"
             elif settings.USE_REAL_FINANCIAL_APIS:
@@ -209,7 +209,7 @@ class AlphaRAGOrchestrator:
             predictions = self.llm_factory.generate_predictions(
                 rag_context, portfolio_value, market_summary, sentiment_data, financial_data
             )
-            
+
             provider_used = predictions.get('provider_used', 'unknown')
             if predictions.get('emergency_fallback', False):
                 logger.warning("🚨 Used emergency fallback for predictions")

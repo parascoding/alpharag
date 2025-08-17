@@ -83,14 +83,14 @@ class Settings:
         # Check that at least one LLM API key is available
         llm_keys = self.get_available_llm_api_keys()
         available_llm_keys = [k for k, v in llm_keys.items() if v]
-        
+
         if not available_llm_keys:
             issues.append("Missing LLM API keys: At least one of GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY is required")
-        
+
         # Validate LLM provider configuration
         all_llm_providers = [self.PRIMARY_LLM_PROVIDER] + self.FALLBACK_LLM_PROVIDERS
         valid_providers = ['gemini', 'gpt', 'claude']
-        
+
         for provider in all_llm_providers:
             if provider not in valid_providers:
                 issues.append(f"Invalid LLM provider: {provider}. Valid options: {valid_providers}")

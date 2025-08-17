@@ -15,11 +15,11 @@ class BaseLLMProvider(ABC):
     """
     Abstract base class for all LLM providers
     """
-    
+
     def __init__(self, name: str, api_key: str, **kwargs):
         """
         Initialize LLM provider
-        
+
         Args:
             name: Provider name (gemini, gpt, claude)
             api_key: API key for the provider
@@ -28,43 +28,43 @@ class BaseLLMProvider(ABC):
         self.name = name
         self.api_key = api_key
         self.logger = logging.getLogger(f"{__name__}.{name}")
-        
+
         # Common configuration
         self.max_tokens = kwargs.get('max_tokens', 4000)
         self.temperature = kwargs.get('temperature', 0.7)
         self.timeout = kwargs.get('timeout', 30)
-        
+
         self.logger.info(f"Initialized {name} LLM provider")
-    
+
     @abstractmethod
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
                            financial_data: Optional[Dict] = None) -> Dict:
         """
         Generate investment predictions and analysis
-        
+
         Args:
             rag_context: Context retrieved from RAG engine
             portfolio_data: Portfolio information and holdings
             market_data: Current market prices and technical data
             sentiment_data: News sentiment analysis results
             financial_data: Financial indicators and ratios
-            
+
         Returns:
             Dictionary containing predictions and analysis
         """
         pass
-    
+
     @abstractmethod
     def is_available(self) -> bool:
         """
         Check if the LLM provider is available and working
-        
+
         Returns:
             True if provider is available, False otherwise
         """
         pass
-    
+
     def _build_analysis_prompt(self, rag_context: str, portfolio_data: Dict,
                               market_data: Dict, sentiment_data: Dict,
                               financial_data: Optional[Dict] = None) -> str:
@@ -119,7 +119,7 @@ Format your response as clear, structured text that can be easily parsed and inc
 Use bullet points and clear headings for readability."""
 
         return prompt
-    
+
     def _format_portfolio_data(self, portfolio_data: Dict) -> str:
         """Format portfolio data for the prompt"""
         summary = portfolio_data['summary']
@@ -140,7 +140,7 @@ Use bullet points and clear headings for readability."""
             )
 
         return "\n".join(lines)
-    
+
     def _format_market_data(self, market_data: Dict) -> str:
         """Format market data for the prompt"""
         lines = [
@@ -160,7 +160,7 @@ Use bullet points and clear headings for readability."""
                 lines.append(f"  Technical: SMA5={tech.get('sma_5', 'N/A')}, SMA20={tech.get('sma_20', 'N/A')}, RSI={tech.get('rsi', 'N/A')}")
 
         return "\n".join(lines)
-    
+
     def _format_sentiment_data(self, sentiment_data: Dict) -> str:
         """Format sentiment data for the prompt"""
         lines = [
@@ -177,7 +177,7 @@ Use bullet points and clear headings for readability."""
             )
 
         return "\n".join(lines)
-    
+
     def _format_financial_data(self, financial_data: Dict) -> str:
         """Format comprehensive financial data for analysis"""
         if not financial_data:
@@ -230,12 +230,12 @@ Use bullet points and clear headings for readability."""
             ])
 
         return "\n".join(lines)
-    
+
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
                                      sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
         """Generate rule-based predictions if API fails"""
         self.logger.error(f"{self.name} API FAILED - Using FALLBACK PREDICTIONS with rule-based analysis")
-        
+
         predictions = {
             'individual_recommendations': {},
             'portfolio_analysis': f'Analysis generated using fallback rules due to {self.name} API error.',
@@ -304,7 +304,7 @@ Use bullet points and clear headings for readability."""
             }
 
         return predictions
-    
+
     def health_check(self) -> Dict[str, Any]:
         """Perform a health check on the LLM provider"""
         health_status = {

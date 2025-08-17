@@ -19,29 +19,29 @@ class ClaudeProvider(BaseLLMProvider):
     """
     Anthropic Claude implementation of the LLM provider interface
     """
-    
+
     def __init__(self, api_key: str, **kwargs):
         super().__init__("claude", api_key, **kwargs)
-        
+
         # Claude-specific configuration
         self.model_name = kwargs.get('model_name', 'claude-3-sonnet-20240229')
-        
+
         try:
             # Initialize Anthropic client
             self.client = anthropic.Anthropic(api_key=api_key)
-            
+
             self.logger.info(f"✅ Claude client initialized: {self.model_name}")
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to initialize Claude: {e}")
             self.client = None
-    
+
     def is_available(self) -> bool:
         """Check if Claude API is available"""
         try:
             if not self.client:
                 return False
-                
+
             # Test with a simple message
             test_response = self.client.messages.create(
                 model=self.model_name,
@@ -50,18 +50,18 @@ class ClaudeProvider(BaseLLMProvider):
                     {"role": "user", "content": "Hello, respond with 'API Working'"}
                 ]
             )
-            
+
             if test_response and test_response.content and test_response.content[0].text:
                 self.logger.info("✅ Claude API availability check: Available")
                 return True
             else:
                 self.logger.error("❌ Claude API returned empty response")
                 return False
-                
+
         except Exception as e:
             self.logger.error(f"❌ Claude availability check failed: {e}")
             return False
-    
+
     def generate_predictions(self, rag_context: str, portfolio_data: Dict,
                            market_data: Dict, sentiment_data: Dict,
                            financial_data: Optional[Dict] = None) -> Dict:
@@ -70,12 +70,12 @@ class ClaudeProvider(BaseLLMProvider):
             if not self.client:
                 self.logger.error("Claude client not initialized")
                 return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
-            
+
             # Build the analysis prompt
             prompt = self._build_analysis_prompt(rag_context, portfolio_data, market_data, sentiment_data, financial_data)
-            
+
             self.logger.info("🤖 Generating predictions with Claude...")
-            
+
             # Generate content with Claude
             response = self.client.messages.create(
                 model=self.model_name,
@@ -86,11 +86,11 @@ class ClaudeProvider(BaseLLMProvider):
                     "content": prompt
                 }]
             )
-            
+
             if not response or not response.content or not response.content[0].text:
                 self.logger.error("Claude returned empty response")
                 return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
-            
+
             # Parse Claude's response
             analysis_text = response.content[0].text
             predictions = self._parse_predictions(analysis_text)
@@ -100,14 +100,14 @@ class ClaudeProvider(BaseLLMProvider):
                 'input_tokens': response.usage.input_tokens if response.usage else 0,
                 'output_tokens': response.usage.output_tokens if response.usage else 0
             }
-            
+
             self.logger.info("✅ Generated predictions successfully using Claude API")
             return predictions
-            
+
         except Exception as e:
             self.logger.error(f"❌ Error generating predictions with Claude: {e}")
             return self._generate_fallback_predictions(portfolio_data, market_data, sentiment_data, financial_data)
-    
+
     def _parse_predictions(self, analysis_text: str) -> Dict:
         """Parse Claude's structured response"""
         predictions = {
@@ -123,10 +123,10 @@ class ClaudeProvider(BaseLLMProvider):
             # Split analysis into sections
             sections = analysis_text.split('\n\n')
             current_section = ''
-            
+
             for section in sections:
                 section_lower = section.lower()
-                
+
                 # Identify sections
                 if any(keyword in section_lower for keyword in ['individual stock', 'recommendations', '1.']):
                     current_section = 'recommendations'
@@ -138,7 +138,7 @@ class ClaudeProvider(BaseLLMProvider):
                 elif any(keyword in section_lower for keyword in ['market insights', '4.']):
                     current_section = 'insights'
                     predictions['market_insights'] = section
-                
+
                 # Parse recommendations section
                 if current_section == 'recommendations':
                     # Look for stock symbols and recommendations
@@ -182,7 +182,7 @@ class ClaudeProvider(BaseLLMProvider):
             predictions['parsing_error'] = str(e)
 
         return predictions
-    
+
     def _extract_symbol(self, text: str) -> Optional[str]:
         """Extract stock symbol from text"""
         symbols = ['RELIANCE.NS', 'TCS.NS', 'INFY.NS']
@@ -192,7 +192,7 @@ class ClaudeProvider(BaseLLMProvider):
             if symbol in text_upper or symbol.replace('.NS', '') in text_upper:
                 return symbol
         return None
-    
+
     def _extract_confidence(self, text: str) -> int:
         """Extract confidence score from text"""
         # Look for numbers that could be confidence scores (1-10)
@@ -201,7 +201,7 @@ class ClaudeProvider(BaseLLMProvider):
             if 1 <= int(num) <= 10:
                 return int(num)
         return 5  # Default confidence
-    
+
     def _generate_fallback_predictions(self, portfolio_data: Dict, market_data: Dict,
                                      sentiment_data: Dict, financial_data: Optional[Dict] = None) -> Dict:
         """Generate fallback predictions when Claude fails"""

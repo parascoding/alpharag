@@ -30,7 +30,7 @@ class FinancialIndicatorsFetcher:
         self.upstox_provider = upstox_provider
         self.cache = {}
         self.cache_timeout = 86400  # 24 hours for financial data
-        
+
         # Initialize Upstox financial calculator
         if upstox_provider:
             from .upstox_financial_calculator import UpstoxFinancialCalculator
@@ -47,7 +47,7 @@ class FinancialIndicatorsFetcher:
             mode = "Alpha Vantage APIs (legacy)"
         else:
             mode = "MOCK data"
-            
+
         logger.info(f"Financial Indicators initialized in {mode} mode")
 
     def get_financial_indicators(self, symbols: List[str]) -> Dict[str, Dict]:
@@ -67,7 +67,7 @@ class FinancialIndicatorsFetcher:
             try:
                 logger.info("Using Upstox-calculated financial ratios")
                 financial_data = self.upstox_calculator.get_financial_indicators_batch(symbols)
-                
+
                 # Check if we got data for all symbols
                 missing_symbols = [s for s in symbols if s not in financial_data]
                 if missing_symbols:
@@ -77,9 +77,9 @@ class FinancialIndicatorsFetcher:
                         mock_data = self._generate_mock_financial_data(symbol)
                         if mock_data:
                             financial_data[symbol] = mock_data
-                            
+
                 return financial_data
-                
+
             except Exception as e:
                 logger.error(f"Upstox calculation failed: {e} - falling back to legacy methods")
 

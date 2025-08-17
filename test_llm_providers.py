@@ -24,23 +24,23 @@ logger = logging.getLogger(__name__)
 
 def test_llm_providers():
     """Test LLM providers and fallback chain"""
-    
+
     try:
         # Load settings
         settings = Settings()
         logger.info("🔧 Settings loaded")
-        
+
         # Get available API keys
         api_keys = settings.get_available_llm_api_keys()
         available_keys = [k for k, v in api_keys.items() if v]
-        
+
         if not available_keys:
             logger.error("❌ No LLM API keys configured")
             logger.info("💡 Please set at least one of: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY")
             return False
-            
+
         logger.info(f"🔑 Available API keys: {available_keys}")
-        
+
         # Initialize LLM Factory
         logger.info("🚀 Initializing LLM Factory...")
         llm_factory = LLMFactory(
@@ -48,28 +48,28 @@ def test_llm_providers():
             fallback_providers=settings.FALLBACK_LLM_PROVIDERS,
             **api_keys
         )
-        
+
         # Check provider status
         status = llm_factory.get_provider_status()
         logger.info(f"📊 Provider Status: {status['healthy_providers']}/{status['total_providers']} healthy")
-        
+
         for provider, details in status['provider_details'].items():
             health_status = "✅ Healthy" if details['healthy'] else "❌ Unhealthy"
             logger.info(f"   {provider.upper()}: {health_status}")
-            
+
         # Test availability
         available_providers = llm_factory.get_available_providers()
         if not available_providers:
             logger.error("❌ No LLM providers available")
             return False
-            
+
         logger.info(f"🤖 Available providers: {available_providers}")
-        
+
         # Test prediction generation with mock data
         logger.info("\n" + "="*60)
         logger.info("🧪 TESTING PREDICTION GENERATION")
         logger.info("="*60)
-        
+
         # Mock portfolio data
         mock_portfolio_data = {
             'summary': {
@@ -95,7 +95,7 @@ def test_llm_providers():
                 }
             ]
         }
-        
+
         # Mock market data
         mock_market_data = {
             'market_status': 'CLOSED',
@@ -105,7 +105,7 @@ def test_llm_providers():
                 'TCS.NS': 3800.0
             }
         }
-        
+
         # Mock sentiment data
         mock_sentiment_data = {
             'overall_sentiment': {
@@ -126,7 +126,7 @@ def test_llm_providers():
                 }
             }
         }
-        
+
         # Mock financial data
         mock_financial_data = {
             'RELIANCE.NS': {
@@ -154,7 +154,7 @@ def test_llm_providers():
                 }
             }
         }
-        
+
         # Mock RAG context
         mock_rag_context = """
         Portfolio Analysis Context:
@@ -162,7 +162,7 @@ def test_llm_providers():
         - IT sector showing resilience with positive sentiment
         - Market volatility observed in recent weeks
         """
-        
+
         # Generate predictions
         logger.info("🔮 Generating test predictions...")
         predictions = llm_factory.generate_predictions(
@@ -172,25 +172,25 @@ def test_llm_providers():
             mock_sentiment_data,
             mock_financial_data
         )
-        
+
         # Display results
         if predictions:
             provider_used = predictions.get('provider_used', 'unknown')
             model_used = predictions.get('model', 'unknown')
-            
+
             print(f"\n✅ PREDICTION RESULTS:")
             print(f"   Provider: {provider_used.upper()}")
             print(f"   Model: {model_used}")
-            
+
             if predictions.get('emergency_fallback', False):
                 print("   Mode: 🚨 Emergency Fallback")
             elif predictions.get('fallback_mode', False):
                 print("   Mode: ⚠️ Provider Fallback")
             else:
                 print("   Mode: ✅ Normal Operation")
-                
+
             print(f"   Timestamp: {predictions.get('timestamp', 'N/A')}")
-            
+
             # Show individual recommendations
             recommendations = predictions.get('individual_recommendations', {})
             if recommendations:
@@ -199,28 +199,28 @@ def test_llm_providers():
                     print(f"   {symbol}: {rec.get('recommendation', 'N/A')} "
                           f"(Confidence: {rec.get('confidence', 'N/A')}/10)")
                     print(f"      Reason: {rec.get('reasoning', 'N/A')[:100]}...")
-            
+
             # Show action items
             action_items = predictions.get('action_items', [])
             if action_items:
                 print(f"\n🎯 ACTION ITEMS:")
                 for i, item in enumerate(action_items[:3], 1):
                     print(f"   {i}. {item}")
-                    
+
             # Show usage info if available
             if 'usage' in predictions:
                 usage = predictions['usage']
                 print(f"\n📊 API USAGE:")
                 for key, value in usage.items():
                     print(f"   {key}: {value}")
-                    
+
         else:
             logger.error("❌ Failed to generate predictions")
             return False
-            
+
         logger.info("\n🎉 Test completed successfully!")
         return True
-        
+
     except Exception as e:
         logger.error(f"❌ Test failed: {e}")
         import traceback
@@ -231,9 +231,9 @@ def main():
     """Main test function"""
     print("🧪 Testing LLM Providers with Fallback Chain")
     print("="*60)
-    
+
     success = test_llm_providers()
-    
+
     if success:
         print("\n✅ All tests passed!")
         print("\n💡 To use in production:")
